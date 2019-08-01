@@ -46,6 +46,10 @@ remarks:        remark
 		testExpectation{token.EMAIL, "notify@example.net", 34, 4},
 		testExpectation{token.UPDATED_TO_EMAIL, "upd-to", 6, 5},
 		testExpectation{token.EMAIL, "upd-to@example.net", 34, 5},
+		testExpectation{token.MAINTAINER_NOTIFY_EMAIL, "mnt-nfy", 7, 6},
+		testExpectation{token.EMAIL, "mnt-nfy@example.net", 35, 6},
+		testExpectation{token.MAINTAINER_NOTIFY_EMAIL, "mnt-nfy", 7, 7},
+		testExpectation{token.EMAIL, "mnt-nfy2@example.net", 36, 7},
 		testExpectation{token.EOF, "", 0, 0},
 	}
 

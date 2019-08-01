@@ -286,8 +286,7 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 	case strings.HasPrefix(l.input[l.pos:], token.UPDATED_TO_EMAIL.Name()):
 		return lexUpdatedToEmailAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER_NOTIFY_EMAIL.Name()):
-		// TODO
-		return lexObjectClass(l)
+		return lexMaintainerNotifyEmailAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.TECHNICAL_CONTACT.Name()):
 		// TODO
 		return lexObjectClass(l)
@@ -374,7 +373,22 @@ func lexUpdatedToEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.ignore()
 
 	return lexEmailAttrValue(l, returnToStateFn)
+}
 
+func lexMaintainerNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
+	l.pos += len(token.MAINTAINER_NOTIFY_EMAIL.Name())
+	l.columnNum = len(token.MAINTAINER_NOTIFY_EMAIL.Name())
+	l.emit(token.MAINTAINER_NOTIFY_EMAIL)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexEmailAttrValue(l, returnToStateFn)
 }
 
 func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
