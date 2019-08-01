@@ -13,11 +13,14 @@ const (
 	alphaLowercase = "abcdefghijklmnopqrstuvwxyz"
 	alphaUppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	digits         = "0123456789"
+	period         = "."
 	hyphen         = "-"
 	underscore     = "_"
 	colon          = ":"
+	plus           = "+"
+	at             = "@"
 	whitespace     = " \t\x85\xA0"
-	newlines       = "\v\f\r\n"
+	newline        = "\n\v\f\r"
 )
 
 // Lexer is the structure responsible for managing the lexical scanning
@@ -264,7 +267,7 @@ func lexMaintainerClassNameValue(l *Lexer) stateFn {
 		l.emit(token.STRING)
 	}
 
-	if !l.acceptRun(newlines) {
+	if !l.acceptRun(newline) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
@@ -278,25 +281,33 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 	case strings.HasPrefix(l.input[l.pos:], token.DESCRIPTION.Name()):
 		return lexMaintainerDescriptionAttrName(l)
 	case strings.HasPrefix(l.input[l.pos:], token.AUTHENTICATION.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.UPDATED_TO_EMAIL.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER_NOTIFY_EMAIL.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.TECHNICAL_CONTACT.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.ADMIN_CONTACT.Name()):
 		return lexMaintainerAdminContactAttrName(l)
 	case strings.HasPrefix(l.input[l.pos:], token.REMARKS.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.NOTIFY_EMAIL.Name()):
-		fallthrough
+		return lexMaintainerNotifyEmailAttrName(l)
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINED_BY.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.CHANGED_AT_AND_BY.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.RECORD_SOURCE.Name()):
-		fallthrough
+		// TODO
+		return lexObjectClass(l)
 	default:
 		return lexObjectClass(l)
 	}
@@ -320,12 +331,12 @@ func lexMaintainerDescriptionAttrName(l *Lexer) stateFn {
 
 func lexMaintainerDescriptionAttrValue(l *Lexer) stateFn {
 	// Maintainer description is a freeform text field
-	l.acceptExceptRun(newlines)
+	l.acceptExceptRun(newline)
 	if l.pos > l.start {
 		l.emit(token.STRING)
 	}
 
-	if !l.acceptRun(newlines) {
+	if !l.acceptRun(newline) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
@@ -365,7 +376,54 @@ func lexMaintainerAdminContactAttrValue(l *Lexer) stateFn {
 		l.emit(token.STRING)
 	}
 
-	if !l.acceptRun(newlines) {
+	if !l.acceptRun(newline) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.ignore()
+
+	return lexMaintainerAttributes(l)
+}
+
+func lexMaintainerNotifyEmailAttrName(l *Lexer) stateFn {
+	l.pos += len(token.NOTIFY_EMAIL.Name())
+	l.columnNum = len(token.NOTIFY_EMAIL.Name())
+	l.emit(token.NOTIFY_EMAIL)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexMaintainerNotifyEmailAttrValue(l)
+}
+
+func lexMaintainerNotifyEmailAttrValue(l *Lexer) stateFn {
+	// Maintainer Notify Email is an email address
+	// it's the parser's responsibility to use net/mail.ParseAddress
+	// to validate that we lexed it correctly
+	if !l.acceptExceptRun(whitespace + newline + at) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if !l.accept(at) {
+		l.emit(token.ILLEGAL)
+	}
+
+	if !l.acceptRun(alphaLowercase + alphaUppercase + digits + period + hyphen + underscore + colon) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if l.pos > l.start {
+		l.emit(token.EMAIL)
+	}
+
+	if !l.acceptRun(newline) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}

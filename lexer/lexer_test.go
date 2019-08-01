@@ -42,6 +42,8 @@ remarks:        remark
 		testExpectation{token.STRING, "unįcöde tæst2 🌈🦄", 34, 2}, // note that we're ending on column 34 because the emoji are width 2
 		testExpectation{token.ADMIN_CONTACT, "admin-c", 7, 3},
 		testExpectation{token.STRING, "PERSON-TEST", 27, 3},
+		testExpectation{token.NOTIFY_EMAIL, "notify", 6, 4},
+		testExpectation{token.EMAIL, "notify@example.net", 34, 4},
 		testExpectation{token.EOF, "", 0, 0},
 	}
 
