@@ -7,61 +7,67 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type expected struct {
-	tType    token.Type
-	tLiteral string
-	tColumn  int
-	tLine    int
+type testExpectations []testExpectation
+
+type testExpectation struct {
+	typ     token.Type
+	literal string
+	column  int
+	line    int
 }
 
-func TestNextChar(t *testing.T) {
-	input := `1234
-+1234
--1234
-AS701
-AS-A123
-AS-12A3
-AS-12-
+func TestLexMaintainer(t *testing.T) {
+	input := `mntner:         TEST-MNT
+descr:          unįcöde tæst2 🌈🦄
+admin-c:        PERSON-TEST
+notify:         notify@example.net
+upd-to:         upd-to@example.net
+mnt-nfy:        mnt-nfy@example.net
+mnt-nfy:        mnt-nfy2@example.net
+auth:           PGPKey-80F238C6
+auth:           CRYPT-PW LEuuhsBJNFV0Q  # crypt-password
+auth:           MD5-pw $1$fgW84Y9r$kKEn9MUq8PChNKpQhO6BM.  # md5-password
+mnt-by:         TEST-MNT
+mnt-by:         OTHER1-MNT,OTHER2-MNT
+changed:        changed@example.com 20190701 # comment
+remarks:        unįcöde tæst 🌈🦄
+source:         TEST
+remarks:        remark
 `
 
-	tests := []expected{
-		expected{token.INT, "1234", 1, 1},
-		expected{token.NEWLINE, "\n", 5, 1},
-		expected{token.SIGNED_INT, "+1234", 1, 2},
-		expected{token.NEWLINE, "\n", 6, 2},
-		expected{token.SIGNED_INT, "-1234", 1, 3},
-		expected{token.NEWLINE, "\n", 6, 3},
-		expected{token.ASNO, "AS701", 1, 4},
-		expected{token.NEWLINE, "\n", 6, 4},
-		expected{token.ASNAME, "AS-A123", 1, 5},
-		expected{token.NEWLINE, "\n", 8, 5},
-		expected{token.ASNAME, "AS-12A3", 1, 6},
-		expected{token.NEWLINE, "\n", 8, 6},
-		expected{token.ILLEGAL, "AS-12-", 1, 7},
-		expected{token.NEWLINE, "\n", 7, 7},
-		expected{token.EOF, "", 0, 8},
+	tests := testExpectations{
+		testExpectation{token.MAINTAINER, "mntner", 6, 1},
+		testExpectation{token.STRING, "TEST-MNT", 24, 1},
+		testExpectation{token.DESCRIPTION, "descr", 5, 2},
+		testExpectation{token.STRING, "unįcöde tæst2 🌈🦄", 34, 2}, // note that we're ending on column 34 because the emoji are width 2
+		testExpectation{token.ADMIN_CONTACT, "admin-c", 7, 3},
+		testExpectation{token.STRING, "PERSON-TEST", 27, 3},
+		testExpectation{token.EOF, "", 0, 0},
 	}
 
-	lex := New(input)
+	l := Lex("maintainer-object", input)
 
 	for _, tt := range tests {
-		invalid := false
-		tok := lex.NextToken()
+		tok := l.NextToken()
+		failure := false
 
-		if !assert.Equal(t, tt.tType, tok.Type, "Invalid token type '%s', expected '%s'", token.LookupName(tok.Type), token.LookupName(tt.tType)) {
-			invalid = true
-		}
-		if !assert.Equal(t, tt.tLiteral, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.tLiteral) {
-			invalid = true
-		}
-		if !assert.Equal(t, tt.tColumn, tok.Column, "Invalid column number %d for token literal '%s'", tok.Column, tok.Literal) {
-			invalid = true
-		}
-		if !assert.Equal(t, tt.tLine, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
-			invalid = true
+		if !assert.Equal(t, tt.typ, tok.Type, "Invalid token type '%s', expected '%s'", tok.Type, tt.typ) {
+			failure = true
 		}
 
-		if invalid {
+		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.column, tok.Column, "Invalid column number %d for token literal '%s'", tok.Column, tok.Literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.line, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
+			failure = true
+		}
+
+		if failure {
 			t.FailNow()
 		}
 	}

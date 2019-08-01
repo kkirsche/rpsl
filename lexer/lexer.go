@@ -6,225 +6,370 @@ import (
 	"unicode/utf8"
 
 	"github.com/kkirsche/rpsl/token"
+	"github.com/mattn/go-runewidth"
 )
 
-// Lexer is the structure responsible for converting the input text into a
-// series of tokens
+const (
+	alphaLowercase = "abcdefghijklmnopqrstuvwxyz"
+	alphaUppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	digits         = "0123456789"
+	hyphen         = "-"
+	underscore     = "_"
+	colon          = ":"
+	whitespace     = " \t\x85\xA0"
+	newlines       = "\v\f\r\n"
+)
+
+// Lexer is the structure responsible for managing the lexical scanning
+// of the input text.
 type Lexer struct {
-	input        string
-	inputLen     int
-	position     int  // current position in input (points to current char)
-	readPosition int  // current reading position in input (after current char)
-	ch           rune // current char under examination
-	chWidth      int  // current character's width
-	column       int  // the current number of the column of the line
-	line         int  // the current number of line
+	name          string           // name is the input text name, used for error reporting purposes
+	input         string           // the input data / reader being scanned by the Lexer
+	start         int              // the start position of the item currently being read
+	pos           int              // the current read position in the input, we tokenize input[start:pos]
+	lastRune      rune             // the last read rune
+	lastRuneWidth int              // unicode has dynamic width characters, this tracks the width of the last read rune
+	tokens        chan token.Token // channel of scanned tokens
+	lineNum       int              // the current line number in the input text (based on line feeds)
+	columnNum     int              // the current column number on the current line number
+	// these allow us to backup
+	previousCol  int
+	previousLine int
 }
 
-// New is used to create a new lexer instance from the input text
-func New(input string) *Lexer {
+// stateFn is a function representing the current lex state. A lex state may be
+// in autonomous system set, in route object, find object type, etc. This is a
+// recursive function which allows us to move between states without having to
+// forget the state and rediscover it each time.
+type stateFn func(*Lexer) stateFn
+
+// eof constant is a magic constant allowing us to signal that we've hit the
+// end of the file
+const eof = -1
+
+// Lex creates a new Lexer and starts running it
+func Lex(inputName, inputText string) *Lexer {
 	l := &Lexer{
-		input:    input,
-		inputLen: len(input),
-		line:     1,
+		name:      inputName,
+		input:     inputText,
+		tokens:    make(chan token.Token, 2),
+		columnNum: 1,
+		lineNum:   1,
 	}
-	// this ensures that our position, readPosition, and column number are
-	// all initialized before the caller uses the lexer
-	l.readChar()
+
+	go l.run()
+
 	return l
 }
 
-func newToken(tType token.Type, ch rune, column, line int) token.Token {
-	return token.Token{Type: tType, Literal: string(ch), Column: column, Line: line}
-}
-
-func isLetter(ch rune, strict bool) bool {
-	if strict {
-		return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z'
+// run is responsible for executing the lexical scanner state machine
+func (l *Lexer) run() {
+	// lexObjectClass is the default state machine. The first thing we do with an
+	// object in RPSL is try to determine what type of object it is.
+	for state := lexObjectClass; state != nil; {
+		state = state(l)
 	}
 
-	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' || ch == '-'
+	close(l.tokens)
 }
 
-func isDigit(ch rune) bool {
-	return '0' <= ch && ch <= '9'
-}
+//*============================================================================
+// Helper Functions
+//*============================================================================
 
-func isAlphaNumeric(ch rune, strict bool) bool {
-	return isDigit(ch) || isLetter(ch, strict)
-}
-
-func isRune(ch, match rune) bool {
-	return ch == match
-}
-
-// readChar advances our position in the input string and provides us with the
-// next character. If we have reached the end of the string, we set the
-// character to 0, which is the ASCII "NUL" code.
-func (l *Lexer) readChar() {
-	if l.ch == '\n' {
-		l.line++
-		l.column = 0
-	}
-
-	l.chWidth = 1
-	if l.readPosition >= l.inputLen {
-		l.ch = 0
-	} else {
-		l.ch, l.chWidth = utf8.DecodeRuneInString(l.input[l.readPosition:])
-	}
-	l.position = l.readPosition
-	l.readPosition += l.chWidth
-	l.column++
-}
-
-func (l *Lexer) backup() {
-	l.readPosition -= l.chWidth
-}
-
-// peekChar is similar to readChar, but instead we peek ahead at the next
-// character in the input stream rather than actually advancing forward.
-// This allows for us to look for two character tokens more easily.
-func (l *Lexer) peekChar() rune {
-	if l.readPosition >= l.inputLen {
-		return 0
-	}
-
-	c, _ := utf8.DecodeRuneInString(l.input[l.readPosition:])
-
-	return c
-}
-
-func (l *Lexer) readIdentifier() string {
-	start := l.position
-	for isLetter(l.ch, false) {
-		l.readChar()
-	}
-	return l.input[start:l.position]
-}
-
-func (l *Lexer) readNumber() string {
-	start := l.position
-	for isDigit(l.ch) {
-		l.readChar()
-	}
-	return l.input[start:l.position]
-}
-
-func (l *Lexer) readAlphanumeric() string {
-	start := l.position
-	for isAlphaNumeric(l.ch, false) {
-		l.readChar()
-	}
-	return l.input[start:l.position]
-}
-
-// skipWhitespace is used to skip over general whitespace characters
-func (l *Lexer) skipWhitespace() {
-	for l.ch == ' ' || l.ch == '\t' || l.ch == '\r' {
-		l.readChar()
-	}
-}
-
-// NextToken is used to read from the input stream and identify what the next
-// token is
+// NextToken returns the next token stored in the channel
 func (l *Lexer) NextToken() token.Token {
-	var tok token.Token
+	return <-l.tokens
+}
 
-	l.skipWhitespace()
+// readRune returns the next rune in the input
+func (l *Lexer) readRune() rune {
+	// save our old state
+	l.previousLine = l.lineNum
+	l.previousCol = l.columnNum
 
-	switch {
-	case isRune(l.ch, 0):
-		// EOF case
-		tok.Literal = ""
-		tok.Type = token.EOF
-		tok.Column = l.column - 1
-		tok.Line = l.line
-	case isRune(l.ch, '\n'):
-		tok = newToken(token.NEWLINE, l.ch, l.column, l.line)
-	case isRune(l.ch, '-'):
-		fallthrough
-	case isRune(l.ch, '+'):
-		// this may be a signed integer
-		if l.detectSignedInt(&tok) {
-			return tok
-		}
-	case isDigit(l.ch):
-		tok.Literal = l.readNumber()
-		tok.Type = token.INT
-		tok.Column = l.column - len(tok.Literal)
-		tok.Line = l.line
-		return tok
-	case isLetter(l.ch, false):
-		tok.Literal = l.readIdentifier()
+	if l.lastRune == '\n' {
+		l.columnNum = 1
+		l.lineNum++
+	}
+	// if the current read position is farther than the length of the input,
+	// we've hit the end of the file.
+	if l.pos >= len(l.input) {
+		l.lastRuneWidth = 0
+		fmt.Println("EOF")
+		return eof
+	}
+
+	l.lastRune, l.lastRuneWidth = utf8.DecodeRuneInString(l.input[l.pos:])
+	l.columnNum = l.columnNum + runewidth.RuneWidth(l.lastRune)
+	l.pos += l.lastRuneWidth
+	return l.lastRune
+}
+
+// backup is responsible for moving our read position in the input back one
+// unicode character (based on the lastRuneWidth)
+func (l *Lexer) backup() {
+	l.pos -= l.lastRuneWidth
+	l.columnNum = l.previousCol
+	l.lineNum = l.previousLine
+}
+
+// peek looks up the next rune in the input but does not advance our position
+func (l *Lexer) peek() rune {
+	if l.pos >= len(l.input) {
+		return eof
+	}
+
+	r, _ := utf8.DecodeRuneInString(l.input[l.pos:])
+	return r
+}
+
+// emit is used to send the current token to the output channel. As it's a
+// buffered channel we can store the next token and the peek token
+func (l *Lexer) emit(t token.Type) {
+	l.tokens <- newToken(t, string(l.input[l.start:l.pos]), l.columnNum, l.lineNum)
+	l.start = l.pos
+}
+
+// newToken is a helper to generate a new token
+func newToken(tType token.Type, literal string, column, line int) token.Token {
+	if tType == token.EOF {
+		column = 0
+		line = 0
+	}
+	return token.Token{Type: tType, Literal: literal, Column: column, Line: line}
+}
+
+// ignore skips over the pending input before this point
+func (l *Lexer) ignore() {
+	l.start = l.pos
+}
+
+func (l *Lexer) accept(valid string) bool {
+	if strings.IndexRune(valid, l.readRune()) >= 0 {
+		return true
+	}
+	l.backup()
+	return false
+}
+
+func (l *Lexer) acceptExcept(invalid string) bool {
+	if strings.IndexRune(invalid, l.readRune()) == -1 {
+		return true
+	}
+	l.backup()
+	return false
+}
+
+// acceptRun is used to read in any as many of the valid characters as possible
+func (l *Lexer) acceptRun(valid string) bool {
+	accepted := false
+	for l.accept(valid) == true {
+		accepted = true
+	}
+
+	return accepted
+}
+
+// acceptExceptRun is used to read in as many characters which do not match the
+// invalid string as possible
+func (l *Lexer) acceptExceptRun(invalid string) bool {
+	accepted := false
+	for l.acceptExcept(invalid) == true {
+		accepted = true
+	}
+
+	return accepted
+}
+
+//*============================================================================
+// State Functions
+//*============================================================================
+
+// lexObjectClass is used to determine what class of RPSL object we are on
+func lexObjectClass(l *Lexer) stateFn {
+	for {
 		switch {
-		case tok.Literal == "AS":
-			if l.detectASNO(&tok) {
-				return tok
-			}
-		case strings.HasPrefix(tok.Literal, "AS-"):
-			if l.detectASNAME(&tok) {
-				return tok
-			}
+		case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER.Name()):
+			return lexMaintainerClassName(l)
+		case strings.HasPrefix(l.input[l.pos:], token.PERSON.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.ROLE.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.AUT_NUM.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.AS_SET.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.ROUTE.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.ROUTE6.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.ROUTE_SET.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.FILTER_SET.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.ROUTER.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.ROUTER_SET.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.PEERING_SET.Name()):
+			fallthrough
+		case strings.HasPrefix(l.input[l.pos:], token.DICTIONARY.Name()):
+			fallthrough
 		default:
-			break
+			l.emit(token.EOF)
+			return nil
 		}
-		tok.Type = token.ILLEGAL
-		tok.Column = l.column - len(tok.Literal)
-		tok.Line = l.line
-		return tok
+
+		// if l.readRune() == eof {
+		// 	break
+		// }
+	}
+
+	// if l.pos > l.start {
+	// 	l.emit(token.STRING)
+	// }
+	// fmt.Println("emitting EOF")
+	// l.emit(token.EOF)
+
+	// // return nil to stop the state machine
+	// return nil
+}
+
+func lexMaintainerClassName(l *Lexer) stateFn {
+	l.pos += len(token.MAINTAINER.Name())
+	l.columnNum = len(token.MAINTAINER.Name())
+	l.emit(token.MAINTAINER)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexMaintainerClassNameValue
+}
+
+func lexMaintainerClassNameValue(l *Lexer) stateFn {
+	// object names must start with a letter
+	if !l.accept(alphaLowercase + alphaUppercase) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	l.acceptRun(alphaLowercase + alphaUppercase + digits + hyphen + underscore)
+	if l.pos > l.start {
+		l.emit(token.STRING)
+	}
+
+	if !l.acceptRun(newlines) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.ignore()
+
+	return lexMaintainerAttributes(l)
+}
+
+func lexMaintainerAttributes(l *Lexer) stateFn {
+	switch {
+	case strings.HasPrefix(l.input[l.pos:], token.DESCRIPTION.Name()):
+		return lexMaintainerDescriptionAttrName(l)
+	case strings.HasPrefix(l.input[l.pos:], token.AUTHENTICATION.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.UPDATED_TO_EMAIL.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER_NOTIFY_EMAIL.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.TECHNICAL_CONTACT.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.ADMIN_CONTACT.Name()):
+		return lexMaintainerAdminContactAttrName(l)
+	case strings.HasPrefix(l.input[l.pos:], token.REMARKS.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.NOTIFY_EMAIL.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINED_BY.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.CHANGED_AT_AND_BY.Name()):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.RECORD_SOURCE.Name()):
+		fallthrough
 	default:
-		tok = newToken(token.ILLEGAL, l.ch, l.column-1, l.line)
+		return lexObjectClass(l)
 	}
-
-	l.readChar()
-	return tok
 }
 
-func (l *Lexer) detectSignedInt(tok *token.Token) bool {
-	if isDigit(l.peekChar()) {
-		plus := l.ch
-		l.readChar()
-		num := l.readNumber()
-		literal := string(plus) + string(num)
+func lexMaintainerDescriptionAttrName(l *Lexer) stateFn {
+	l.pos += len(token.DESCRIPTION.Name())
+	l.columnNum = len(token.DESCRIPTION.Name())
+	l.emit(token.DESCRIPTION)
 
-		tok.Literal = literal
-		tok.Type = token.SIGNED_INT
-		tok.Column = l.column - len(tok.Literal)
-		tok.Line = l.line
-		return true
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
 	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
 
-	return false
+	return lexMaintainerDescriptionAttrValue
 }
 
-func (l *Lexer) detectASNO(tok *token.Token) bool {
-	if isDigit(l.ch) {
-		num := l.readNumber()
-		tok.Literal = tok.Literal + string(num)
-		tok.Type = token.ASNO
-		tok.Column = l.column - len(tok.Literal)
-		tok.Line = l.line
-		return true
+func lexMaintainerDescriptionAttrValue(l *Lexer) stateFn {
+	// Maintainer description is a freeform text field
+	l.acceptExceptRun(newlines)
+	if l.pos > l.start {
+		l.emit(token.STRING)
 	}
 
-	return false
+	if !l.acceptRun(newlines) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.ignore()
+
+	return lexMaintainerAttributes(l)
 }
 
-func (l *Lexer) detectASNAME(tok *token.Token) bool {
-	if isAlphaNumeric(l.ch, false) {
-		asName := l.readAlphanumeric()
-		tok.Literal = tok.Literal + string(asName)
-		lastChar := []rune(tok.Literal[len(tok.Literal)-1:])[0]
-		tok.Type = token.ASNAME
-		if !isAlphaNumeric(lastChar, true) {
-			fmt.Println(tok.Literal, string(lastChar))
-			tok.Type = token.ILLEGAL
-		}
-		tok.Column = l.column - len(tok.Literal)
-		tok.Line = l.line
-		return true
+func lexMaintainerAdminContactAttrName(l *Lexer) stateFn {
+	l.pos += len(token.ADMIN_CONTACT.Name())
+	l.columnNum = len(token.ADMIN_CONTACT.Name())
+	l.emit(token.ADMIN_CONTACT)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexMaintainerAdminContactAttrValue(l)
+}
+
+func lexMaintainerAdminContactAttrValue(l *Lexer) stateFn {
+	// Maintainer admin contact is a nic-handle
+	// NIC handles (Network Information Centre handles) are alphanumeric
+	// object names must start with a letter
+	// and must begin with a letter
+	if !l.accept(alphaLowercase + alphaUppercase) {
+		l.emit(token.ILLEGAL)
+		return nil
 	}
 
-	return false
+	l.acceptRun(alphaLowercase + alphaUppercase + digits + hyphen + underscore)
+	if l.pos > l.start {
+		l.emit(token.STRING)
+	}
+
+	if !l.acceptRun(newlines) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.ignore()
+
+	return lexMaintainerAttributes(l)
 }
