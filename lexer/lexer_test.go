@@ -44,6 +44,8 @@ remarks:        remark
 		testExpectation{token.STRING, "PERSON-TEST", 27, 3},
 		testExpectation{token.NOTIFY_EMAIL, "notify", 6, 4},
 		testExpectation{token.EMAIL, "notify@example.net", 34, 4},
+		testExpectation{token.UPDATED_TO_EMAIL, "upd-to", 6, 5},
+		testExpectation{token.EMAIL, "upd-to@example.net", 34, 5},
 		testExpectation{token.EOF, "", 0, 0},
 	}
 
