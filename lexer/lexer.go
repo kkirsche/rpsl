@@ -12,13 +12,20 @@ import (
 const (
 	alphaLowercase = "abcdefghijklmnopqrstuvwxyz"
 	alphaUppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	alpha          = alphaLowercase + alphaUppercase
 	digits         = "0123456789"
+	hexDigits      = digits + "ABCDEFabcedf"
+	alphaNumeric   = alpha + digits
 	period         = "."
 	hyphen         = "-"
 	underscore     = "_"
 	colon          = ":"
 	plus           = "+"
 	at             = "@"
+	pound          = "#"
+	forwardSlash   = "/"
+	backSlash      = "\\"
+	dollarSign     = "$"
 	whitespace     = " \t\x85\xA0"
 	newline        = "\n\v\f\r"
 )
@@ -257,12 +264,12 @@ func lexMaintainerClassName(l *Lexer) stateFn {
 
 func lexMaintainerClassNameValue(l *Lexer) stateFn {
 	// object names must start with a letter
-	if !l.accept(alphaLowercase + alphaUppercase) {
+	if !l.accept(alpha) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
 
-	l.acceptRun(alphaLowercase + alphaUppercase + digits + hyphen + underscore)
+	l.acceptRun(alphaNumeric + hyphen + underscore)
 	if l.pos > l.start {
 		l.emit(token.STRING)
 	}
@@ -281,8 +288,7 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 	case strings.HasPrefix(l.input[l.pos:], token.DESCRIPTION.Name()):
 		return lexDescriptionAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.AUTHENTICATION.Name()):
-		// TODO
-		return lexObjectClass(l)
+		return lexAuthenticationAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.UPDATED_TO_EMAIL.Name()):
 		return lexUpdatedToEmailAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER_NOTIFY_EMAIL.Name()):
@@ -391,16 +397,32 @@ func lexMaintainerNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn
 	return lexEmailAttrValue(l, returnToStateFn)
 }
 
+func lexAuthenticationAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
+	l.pos += len(token.AUTHENTICATION.Name())
+	l.columnNum = len(token.AUTHENTICATION.Name())
+	l.emit(token.AUTHENTICATION)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexAuthenticationAttrValue(l, returnToStateFn)
+}
+
 func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	// NIC handles (Network Information Centre handles) are alphanumeric
 	// object names must start with a letter
 	// and must begin with a letter
-	if !l.accept(alphaLowercase + alphaUppercase) {
+	if !l.accept(alpha) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
 
-	l.acceptRun(alphaLowercase + alphaUppercase + digits + hyphen + underscore)
+	l.acceptRun(alphaNumeric + hyphen + underscore)
 	if l.pos > l.start {
 		l.emit(token.STRING)
 	}
@@ -411,7 +433,7 @@ func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 	l.ignore()
 
-	return nextStateFn(l)
+	return nextStateFn
 }
 
 func lexEmailAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
@@ -425,9 +447,10 @@ func lexEmailAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 	if !l.accept(at) {
 		l.emit(token.ILLEGAL)
+		return nil
 	}
 
-	if !l.acceptRun(alphaLowercase + alphaUppercase + digits + period + hyphen + underscore + colon) {
+	if !l.acceptRun(alphaNumeric + period + hyphen + underscore + colon) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
@@ -442,7 +465,7 @@ func lexEmailAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 	l.ignore()
 
-	return nextStateFn(l)
+	return nextStateFn
 }
 
 func lexFreeformAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
@@ -457,5 +480,159 @@ func lexFreeformAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 	l.ignore()
 
-	return nextStateFn(l)
+	return nextStateFn
+}
+
+func lexAuthenticationAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	switch {
+	case strings.HasPrefix(l.input[l.pos:], token.PGP_KEY.Name()):
+		l.pos += len(token.PGP_KEY.Name())
+		l.columnNum += runewidth.StringWidth(token.PGP_KEY.Name())
+		l.ignore()
+		return lexPGPKeyAuthAttrValue(l, nextStateFn)
+	case strings.HasPrefix(l.input[l.pos:], token.CRYPT_PASS.Name()):
+		l.pos += len(token.CRYPT_PASS.Name())
+		l.columnNum += runewidth.StringWidth(token.CRYPT_PASS.Name())
+		l.acceptRun(whitespace)
+		l.ignore()
+		return lexCryptPassAuthAttrValue(l, nextStateFn)
+	case strings.HasPrefix(l.input[l.pos:], token.MD5_PASS.Name()):
+		l.pos += len(token.MD5_PASS.Name())
+		l.columnNum += runewidth.StringWidth(token.MD5_PASS.Name())
+		l.acceptRun(whitespace)
+		l.ignore()
+		return lexMD5PassAuthAttrValue(l, nextStateFn)
+	case strings.HasPrefix(l.input[l.pos:], token.MAIL_FROM_PASS.Name()):
+		fmt.Println("eating MAIL-FROM", l.columnNum)
+		l.pos += len(token.MAIL_FROM_PASS.Name())
+		l.columnNum += runewidth.StringWidth(token.MAIL_FROM_PASS.Name())
+		l.acceptRun(whitespace)
+		l.ignore()
+		fmt.Println("entering email address", l.columnNum)
+		return lexMailFromPassAuthAttrValue(l, nextStateFn)
+	case strings.HasPrefix(l.input[l.pos:], token.NO_AUTH.Name()):
+		return lexNoAuthAttrValue(l, nextStateFn)
+	default:
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+}
+
+func lexPGPKeyAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// accept hex numbers representing the PGP key
+	for i := 0; i < 8; i++ {
+		if !l.accept(hexDigits) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+
+	if l.pos > l.start {
+		l.emit(token.PGP_KEY)
+	}
+
+	l.acceptExceptRun(newline)
+	l.acceptRun(newline)
+	l.ignore()
+	return nextStateFn
+}
+
+func lexCryptPassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// you can generate a crypt password via:
+	// openssl passwd -crypt MyPassword
+	for i := 0; i < 13; i++ {
+		if !l.accept(alphaNumeric + forwardSlash + backSlash) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+
+	if l.pos > l.start {
+		l.emit(token.CRYPT_PASS)
+	}
+
+	l.acceptExceptRun(newline)
+	l.acceptRun(newline)
+	l.ignore()
+	return nextStateFn
+}
+
+func lexMD5PassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	if !l.accept(dollarSign) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if !l.accept("1") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if !l.accept(dollarSign) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	for i := 0; i < 8; i++ {
+		if !l.accept(alphaNumeric + period + forwardSlash) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+
+	if !l.accept(dollarSign) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if !l.acceptRun(alphaNumeric + period + forwardSlash) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if l.pos > l.start {
+		l.emit(token.MD5_PASS)
+	}
+
+	l.acceptExceptRun(newline)
+	l.acceptRun(newline)
+	l.ignore()
+	return nextStateFn
+}
+
+func lexMailFromPassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	fmt.Println("beginning email address", l.columnNum)
+	if !l.acceptExceptRun(whitespace + newline + at) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	fmt.Println("eating @", l.columnNum)
+	if !l.accept(at) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	fmt.Println("eating domain", l.columnNum)
+	if !l.acceptRun(alphaNumeric + period + hyphen + underscore + colon) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	fmt.Println("emiting token", l.columnNum)
+	if l.pos > l.start {
+		l.emit(token.MAIL_FROM_PASS)
+	}
+
+	l.acceptRun(whitespace)
+	l.accept(pound)
+	l.acceptExceptRun(newline)
+	l.acceptRun(newline)
+	l.ignore()
+
+	return nextStateFn
+}
+
+func lexNoAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	return nil
 }

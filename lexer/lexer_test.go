@@ -27,6 +27,8 @@ mnt-nfy:        mnt-nfy2@example.net
 auth:           PGPKey-80F238C6
 auth:           CRYPT-PW LEuuhsBJNFV0Q  # crypt-password
 auth:           MD5-pw $1$fgW84Y9r$kKEn9MUq8PChNKpQhO6BM.  # md5-password
+auth:           MAIL-FROM auth@example.net
+auth:           NONE
 mnt-by:         TEST-MNT
 mnt-by:         OTHER1-MNT,OTHER2-MNT
 changed:        changed@example.com 20190701 # comment
@@ -50,6 +52,16 @@ remarks:        remark
 		testExpectation{token.EMAIL, "mnt-nfy@example.net", 35, 6},
 		testExpectation{token.MAINTAINER_NOTIFY_EMAIL, "mnt-nfy", 7, 7},
 		testExpectation{token.EMAIL, "mnt-nfy2@example.net", 36, 7},
+		testExpectation{token.AUTHENTICATION, "auth", 4, 8},
+		testExpectation{token.PGP_KEY, "80F238C6", 31, 8},
+		testExpectation{token.AUTHENTICATION, "auth", 4, 9},
+		testExpectation{token.CRYPT_PASS, "LEuuhsBJNFV0Q", 38, 9},
+		testExpectation{token.AUTHENTICATION, "auth", 4, 10},
+		testExpectation{token.MD5_PASS, "$1$fgW84Y9r$kKEn9MUq8PChNKpQhO6BM.", 57, 10},
+		testExpectation{token.AUTHENTICATION, "auth", 4, 11},
+		testExpectation{token.MAIL_FROM_PASS, "auth@example.net", 42, 11},
+		testExpectation{token.AUTHENTICATION, "auth", 4, 12},
+		testExpectation{token.NO_AUTH, "NONE", 20, 12},
 		testExpectation{token.EOF, "", 0, 0},
 	}
 
