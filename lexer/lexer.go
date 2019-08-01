@@ -326,23 +326,7 @@ func lexMaintainerDescriptionAttrName(l *Lexer) stateFn {
 	// ignore the colon and any whitespace following it
 	l.ignore()
 
-	return lexMaintainerDescriptionAttrValue
-}
-
-func lexMaintainerDescriptionAttrValue(l *Lexer) stateFn {
-	// Maintainer description is a freeform text field
-	l.acceptExceptRun(newline)
-	if l.pos > l.start {
-		l.emit(token.STRING)
-	}
-
-	if !l.acceptRun(newline) {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.ignore()
-
-	return lexMaintainerAttributes(l)
+	return lexFreeformAttrValue(l, lexMaintainerAttributes)
 }
 
 func lexMaintainerAdminContactAttrName(l *Lexer) stateFn {
@@ -358,11 +342,26 @@ func lexMaintainerAdminContactAttrName(l *Lexer) stateFn {
 	// ignore the colon and any whitespace following it
 	l.ignore()
 
-	return lexMaintainerAdminContactAttrValue(l)
+	return lexNICHandleAttrValue(l, lexMaintainerAttributes)
 }
 
-func lexMaintainerAdminContactAttrValue(l *Lexer) stateFn {
-	// Maintainer admin contact is a nic-handle
+func lexMaintainerNotifyEmailAttrName(l *Lexer) stateFn {
+	l.pos += len(token.NOTIFY_EMAIL.Name())
+	l.columnNum = len(token.NOTIFY_EMAIL.Name())
+	l.emit(token.NOTIFY_EMAIL)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexEmailAttrValue(l, lexMaintainerAttributes)
+}
+
+func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	// NIC handles (Network Information Centre handles) are alphanumeric
 	// object names must start with a letter
 	// and must begin with a letter
@@ -382,26 +381,10 @@ func lexMaintainerAdminContactAttrValue(l *Lexer) stateFn {
 	}
 	l.ignore()
 
-	return lexMaintainerAttributes(l)
+	return nextStateFn(l)
 }
 
-func lexMaintainerNotifyEmailAttrName(l *Lexer) stateFn {
-	l.pos += len(token.NOTIFY_EMAIL.Name())
-	l.columnNum = len(token.NOTIFY_EMAIL.Name())
-	l.emit(token.NOTIFY_EMAIL)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexMaintainerNotifyEmailAttrValue(l)
-}
-
-func lexMaintainerNotifyEmailAttrValue(l *Lexer) stateFn {
+func lexEmailAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	// Maintainer Notify Email is an email address
 	// it's the parser's responsibility to use net/mail.ParseAddress
 	// to validate that we lexed it correctly
@@ -429,5 +412,20 @@ func lexMaintainerNotifyEmailAttrValue(l *Lexer) stateFn {
 	}
 	l.ignore()
 
-	return lexMaintainerAttributes(l)
+	return nextStateFn(l)
+}
+
+func lexFreeformAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	l.acceptExceptRun(newline)
+	if l.pos > l.start {
+		l.emit(token.STRING)
+	}
+
+	if !l.acceptRun(newline) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.ignore()
+
+	return nextStateFn(l)
 }
