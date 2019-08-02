@@ -12,7 +12,6 @@ type testExpectations []testExpectation
 type testExpectation struct {
 	typ     token.Type
 	literal string
-	column  int
 	line    int
 }
 
@@ -38,31 +37,39 @@ remarks:        remark
 `
 
 	tests := testExpectations{
-		testExpectation{token.MAINTAINER, "mntner", 6, 1},
-		testExpectation{token.STRING, "TEST-MNT", 24, 1},
-		testExpectation{token.DESCRIPTION, "descr", 5, 2},
-		testExpectation{token.STRING, "unįcöde tæst2 🌈🦄", 34, 2}, // note that we're ending on column 34 because the emoji are width 2
-		testExpectation{token.ADMIN_CONTACT, "admin-c", 7, 3},
-		testExpectation{token.STRING, "PERSON-TEST", 27, 3},
-		testExpectation{token.NOTIFY_EMAIL, "notify", 6, 4},
-		testExpectation{token.EMAIL, "notify@example.net", 34, 4},
-		testExpectation{token.UPDATED_TO_EMAIL, "upd-to", 6, 5},
-		testExpectation{token.EMAIL, "upd-to@example.net", 34, 5},
-		testExpectation{token.MAINTAINER_NOTIFY_EMAIL, "mnt-nfy", 7, 6},
-		testExpectation{token.EMAIL, "mnt-nfy@example.net", 35, 6},
-		testExpectation{token.MAINTAINER_NOTIFY_EMAIL, "mnt-nfy", 7, 7},
-		testExpectation{token.EMAIL, "mnt-nfy2@example.net", 36, 7},
-		testExpectation{token.AUTHENTICATION, "auth", 4, 8},
-		testExpectation{token.PGP_KEY, "80F238C6", 31, 8},
-		testExpectation{token.AUTHENTICATION, "auth", 4, 9},
-		testExpectation{token.CRYPT_PASS, "LEuuhsBJNFV0Q", 38, 9},
-		testExpectation{token.AUTHENTICATION, "auth", 4, 10},
-		testExpectation{token.MD5_PASS, "$1$fgW84Y9r$kKEn9MUq8PChNKpQhO6BM.", 57, 10},
-		testExpectation{token.AUTHENTICATION, "auth", 4, 11},
-		testExpectation{token.MAIL_FROM_PASS, "auth@example.net", 42, 11},
-		testExpectation{token.AUTHENTICATION, "auth", 4, 12},
-		testExpectation{token.NO_AUTH, "NONE", 20, 12},
-		testExpectation{token.EOF, "", 0, 0},
+		testExpectation{token.MAINTAINER, "mntner", 1},
+		testExpectation{token.STRING, "TEST-MNT", 1},
+		testExpectation{token.DESCRIPTION, "descr", 2},
+		testExpectation{token.STRING, "unįcöde tæst2 🌈🦄", 2}, // note that we're ending on column 34 because the emoji are width 2
+		testExpectation{token.ADMIN_CONTACT, "admin-c", 3},
+		testExpectation{token.STRING, "PERSON-TEST", 3},
+		testExpectation{token.NOTIFY_EMAIL, "notify", 4},
+		testExpectation{token.EMAIL, "notify@example.net", 4},
+		testExpectation{token.UPDATED_TO_EMAIL, "upd-to", 5},
+		testExpectation{token.EMAIL, "upd-to@example.net", 5},
+		testExpectation{token.MAINTAINER_NOTIFY_EMAIL, "mnt-nfy", 6},
+		testExpectation{token.EMAIL, "mnt-nfy@example.net", 6},
+		testExpectation{token.MAINTAINER_NOTIFY_EMAIL, "mnt-nfy", 7},
+		testExpectation{token.EMAIL, "mnt-nfy2@example.net", 7},
+		testExpectation{token.AUTHENTICATION, "auth", 8},
+		testExpectation{token.PGP_KEY, "80F238C6", 8},
+		testExpectation{token.AUTHENTICATION, "auth", 9},
+		testExpectation{token.CRYPT_PASS, "LEuuhsBJNFV0Q", 9},
+		testExpectation{token.AUTHENTICATION, "auth", 10},
+		testExpectation{token.MD5_PASS, "$1$fgW84Y9r$kKEn9MUq8PChNKpQhO6BM.", 10},
+		testExpectation{token.AUTHENTICATION, "auth", 11},
+		testExpectation{token.MAIL_FROM_PASS, "auth@example.net", 11},
+		testExpectation{token.AUTHENTICATION, "auth", 12},
+		testExpectation{token.NO_AUTH, "NONE", 12},
+		testExpectation{token.MAINTAINED_BY, "mnt-by", 13},
+		testExpectation{token.STRING, "TEST-MNT", 13},
+		testExpectation{token.MAINTAINED_BY, "mnt-by", 14},
+		testExpectation{token.STRING, "OTHER1-MNT", 14},
+		testExpectation{token.STRING, "OTHER2-MNT", 14},
+		testExpectation{token.CHANGED_AT_AND_BY, "changed", 15},
+		testExpectation{token.EMAIL, "changed@example.com", 15},
+		testExpectation{token.DATE, "20190701", 15},
+		testExpectation{token.EOF, "", 0},
 	}
 
 	l := Lex("maintainer-object", input)
@@ -76,10 +83,6 @@ remarks:        remark
 		}
 
 		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
-			failure = true
-		}
-
-		if !assert.Equal(t, tt.column, tok.Column, "Invalid column number %d for token literal '%s'", tok.Column, tok.Literal) {
 			failure = true
 		}
 

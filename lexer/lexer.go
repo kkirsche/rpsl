@@ -6,7 +6,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/kkirsche/rpsl/token"
-	"github.com/mattn/go-runewidth"
 )
 
 const (
@@ -28,6 +27,7 @@ const (
 	dollarSign     = "$"
 	whitespace     = " \t\x85\xA0"
 	newline        = "\n\v\f\r"
+	comma          = ","
 )
 
 // Lexer is the structure responsible for managing the lexical scanning
@@ -41,10 +41,6 @@ type Lexer struct {
 	lastRuneWidth int              // unicode has dynamic width characters, this tracks the width of the last read rune
 	tokens        chan token.Token // channel of scanned tokens
 	lineNum       int              // the current line number in the input text (based on line feeds)
-	columnNum     int              // the current column number on the current line number
-	// these allow us to backup
-	previousCol  int
-	previousLine int
 }
 
 // stateFn is a function representing the current lex state. A lex state may be
@@ -60,11 +56,10 @@ const eof = -1
 // Lex creates a new Lexer and starts running it
 func Lex(inputName, inputText string) *Lexer {
 	l := &Lexer{
-		name:      inputName,
-		input:     inputText,
-		tokens:    make(chan token.Token, 2),
-		columnNum: 1,
-		lineNum:   1,
+		name:    inputName,
+		input:   inputText,
+		tokens:  make(chan token.Token, 2),
+		lineNum: 1,
 	}
 
 	go l.run()
@@ -94,14 +89,6 @@ func (l *Lexer) NextToken() token.Token {
 
 // readRune returns the next rune in the input
 func (l *Lexer) readRune() rune {
-	// save our old state
-	l.previousLine = l.lineNum
-	l.previousCol = l.columnNum
-
-	if l.lastRune == '\n' {
-		l.columnNum = 1
-		l.lineNum++
-	}
 	// if the current read position is farther than the length of the input,
 	// we've hit the end of the file.
 	if l.pos >= len(l.input) {
@@ -111,8 +98,10 @@ func (l *Lexer) readRune() rune {
 	}
 
 	l.lastRune, l.lastRuneWidth = utf8.DecodeRuneInString(l.input[l.pos:])
-	l.columnNum = l.columnNum + runewidth.RuneWidth(l.lastRune)
 	l.pos += l.lastRuneWidth
+	if l.lastRune == '\n' {
+		l.lineNum++
+	}
 	return l.lastRune
 }
 
@@ -120,8 +109,10 @@ func (l *Lexer) readRune() rune {
 // unicode character (based on the lastRuneWidth)
 func (l *Lexer) backup() {
 	l.pos -= l.lastRuneWidth
-	l.columnNum = l.previousCol
-	l.lineNum = l.previousLine
+	// taken from https://golang.org/src/text/template/parse/lex.go
+	if l.lastRuneWidth == 1 && l.input[l.pos] == '\n' {
+		l.lineNum--
+	}
 }
 
 // peek looks up the next rune in the input but does not advance our position
@@ -137,17 +128,16 @@ func (l *Lexer) peek() rune {
 // emit is used to send the current token to the output channel. As it's a
 // buffered channel we can store the next token and the peek token
 func (l *Lexer) emit(t token.Type) {
-	l.tokens <- newToken(t, string(l.input[l.start:l.pos]), l.columnNum, l.lineNum)
+	l.tokens <- newToken(t, string(l.input[l.start:l.pos]), l.lineNum)
 	l.start = l.pos
 }
 
 // newToken is a helper to generate a new token
-func newToken(tType token.Type, literal string, column, line int) token.Token {
+func newToken(tType token.Type, literal string, line int) token.Token {
 	if tType == token.EOF {
-		column = 0
 		line = 0
 	}
-	return token.Token{Type: tType, Literal: literal, Column: column, Line: line}
+	return token.Token{Type: tType, Literal: literal, Line: line}
 }
 
 // ignore skips over the pending input before this point
@@ -248,7 +238,6 @@ func lexObjectClass(l *Lexer) stateFn {
 
 func lexMaintainerClassName(l *Lexer) stateFn {
 	l.pos += len(token.MAINTAINER.Name())
-	l.columnNum = len(token.MAINTAINER.Name())
 	l.emit(token.MAINTAINER)
 
 	if !l.accept(":") {
@@ -284,6 +273,14 @@ func lexMaintainerClassNameValue(l *Lexer) stateFn {
 }
 
 func lexMaintainerAttributes(l *Lexer) stateFn {
+	l.acceptRun(whitespace)
+	if l.accept(pound) {
+		l.acceptExceptRun(newline)
+		l.acceptRun(newline)
+	}
+	l.accept(newline)
+	l.ignore()
+
 	switch {
 	case strings.HasPrefix(l.input[l.pos:], token.DESCRIPTION.Name()):
 		return lexDescriptionAttrName(l, lexMaintainerAttributes)
@@ -304,11 +301,9 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 	case strings.HasPrefix(l.input[l.pos:], token.NOTIFY_EMAIL.Name()):
 		return lexNotifyEmailAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINED_BY.Name()):
-		// TODO
-		return lexObjectClass(l)
+		return lexMaintainedByAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.CHANGED_AT_AND_BY.Name()):
-		// TODO
-		return lexObjectClass(l)
+		return lexChangedAtAndByAttrName(l, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.RECORD_SOURCE.Name()):
 		// TODO
 		return lexObjectClass(l)
@@ -319,23 +314,21 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 
 func lexDescriptionAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.pos += len(token.DESCRIPTION.Name())
-	l.columnNum = len(token.DESCRIPTION.Name())
 	l.emit(token.DESCRIPTION)
 
 	if !l.accept(":") {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
+
 	l.acceptRun(whitespace)
 	// ignore the colon and any whitespace following it
 	l.ignore()
-
 	return lexFreeformAttrValue(l, returnToStateFn)
 }
 
 func lexAdminContactAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.pos += len(token.ADMIN_CONTACT.Name())
-	l.columnNum = len(token.ADMIN_CONTACT.Name())
 	l.emit(token.ADMIN_CONTACT)
 
 	if !l.accept(":") {
@@ -351,7 +344,6 @@ func lexAdminContactAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 
 func lexNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.pos += len(token.NOTIFY_EMAIL.Name())
-	l.columnNum = len(token.NOTIFY_EMAIL.Name())
 	l.emit(token.NOTIFY_EMAIL)
 
 	if !l.accept(":") {
@@ -367,7 +359,6 @@ func lexNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 
 func lexUpdatedToEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.pos += len(token.UPDATED_TO_EMAIL.Name())
-	l.columnNum = len(token.UPDATED_TO_EMAIL.Name())
 	l.emit(token.UPDATED_TO_EMAIL)
 
 	if !l.accept(":") {
@@ -383,7 +374,6 @@ func lexUpdatedToEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 
 func lexMaintainerNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.pos += len(token.MAINTAINER_NOTIFY_EMAIL.Name())
-	l.columnNum = len(token.MAINTAINER_NOTIFY_EMAIL.Name())
 	l.emit(token.MAINTAINER_NOTIFY_EMAIL)
 
 	if !l.accept(":") {
@@ -399,7 +389,6 @@ func lexMaintainerNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn
 
 func lexAuthenticationAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.pos += len(token.AUTHENTICATION.Name())
-	l.columnNum = len(token.AUTHENTICATION.Name())
 	l.emit(token.AUTHENTICATION)
 
 	if !l.accept(":") {
@@ -411,6 +400,37 @@ func lexAuthenticationAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.ignore()
 
 	return lexAuthenticationAttrValue(l, returnToStateFn)
+}
+
+func lexMaintainedByAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
+	l.pos += len(token.MAINTAINED_BY.Name())
+	l.emit(token.MAINTAINED_BY)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexNICHandleAttrValue(l, returnToStateFn)
+}
+
+func lexChangedAtAndByAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
+	l.pos += len(token.CHANGED_AT_AND_BY.Name())
+	l.emit(token.CHANGED_AT_AND_BY)
+
+	if !l.accept(":") {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	l.acceptRun(whitespace)
+	// ignore the colon and any whitespace following it
+	l.ignore()
+
+	return lexEmailAndDateAttrValue(l, returnToStateFn)
 }
 
 func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
@@ -427,11 +447,53 @@ func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		l.emit(token.STRING)
 	}
 
-	if !l.acceptRun(newline) {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
+	l.acceptRun(whitespace)
 	l.ignore()
+
+	foundNextHandle := l.accept(comma)
+	for foundNextHandle == true {
+		l.acceptRun(whitespace)
+		l.ignore()
+
+		if !l.accept(alpha) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+
+		l.acceptRun(alphaNumeric + hyphen + underscore)
+		if l.pos > l.start {
+			l.emit(token.STRING)
+		}
+
+		l.acceptRun(whitespace)
+		l.ignore()
+		foundNextHandle = l.accept(comma)
+	}
+
+	return nextStateFn
+}
+
+func lexEmailAndDateAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// ignore the state function aspect of the email attribute reader
+	_ = lexEmailAttrValue(l, nil)
+	// accept any whitespace between the email and the date
+	l.acceptRun(whitespace)
+	l.ignore()
+
+	// read in the 8 digit date
+	// YYYY = 4 numbers for year
+	// MM = 2 digits for month
+	// DD = 2 digits for day
+	for i := 0; i < 8; i++ {
+		if !l.accept(digits) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATE)
+	}
 
 	return nextStateFn
 }
@@ -459,12 +521,6 @@ func lexEmailAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		l.emit(token.EMAIL)
 	}
 
-	if !l.acceptRun(newline) {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.ignore()
-
 	return nextStateFn
 }
 
@@ -474,44 +530,32 @@ func lexFreeformAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		l.emit(token.STRING)
 	}
 
-	if !l.acceptRun(newline) {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.ignore()
-
 	return nextStateFn
 }
 
-func lexAuthenticationAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+func lexAuthenticationAttrValue(l *Lexer, returnToStateFn stateFn) stateFn {
 	switch {
 	case strings.HasPrefix(l.input[l.pos:], token.PGP_KEY.Name()):
 		l.pos += len(token.PGP_KEY.Name())
-		l.columnNum += runewidth.StringWidth(token.PGP_KEY.Name())
 		l.ignore()
-		return lexPGPKeyAuthAttrValue(l, nextStateFn)
+		return lexPGPKeyAuthAttrValue(l, returnToStateFn)
 	case strings.HasPrefix(l.input[l.pos:], token.CRYPT_PASS.Name()):
 		l.pos += len(token.CRYPT_PASS.Name())
-		l.columnNum += runewidth.StringWidth(token.CRYPT_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
-		return lexCryptPassAuthAttrValue(l, nextStateFn)
+		return lexCryptPassAuthAttrValue(l, returnToStateFn)
 	case strings.HasPrefix(l.input[l.pos:], token.MD5_PASS.Name()):
 		l.pos += len(token.MD5_PASS.Name())
-		l.columnNum += runewidth.StringWidth(token.MD5_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
-		return lexMD5PassAuthAttrValue(l, nextStateFn)
+		return lexMD5PassAuthAttrValue(l, returnToStateFn)
 	case strings.HasPrefix(l.input[l.pos:], token.MAIL_FROM_PASS.Name()):
-		fmt.Println("eating MAIL-FROM", l.columnNum)
 		l.pos += len(token.MAIL_FROM_PASS.Name())
-		l.columnNum += runewidth.StringWidth(token.MAIL_FROM_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
-		fmt.Println("entering email address", l.columnNum)
-		return lexMailFromPassAuthAttrValue(l, nextStateFn)
+		return lexMailFromPassAuthAttrValue(l, returnToStateFn)
 	case strings.HasPrefix(l.input[l.pos:], token.NO_AUTH.Name()):
-		return lexNoAuthAttrValue(l, nextStateFn)
+		return lexNoAuthAttrValue(l, returnToStateFn)
 	default:
 		l.emit(token.ILLEGAL)
 		return nil
@@ -531,9 +575,6 @@ func lexPGPKeyAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		l.emit(token.PGP_KEY)
 	}
 
-	l.acceptExceptRun(newline)
-	l.acceptRun(newline)
-	l.ignore()
 	return nextStateFn
 }
 
@@ -551,9 +592,6 @@ func lexCryptPassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		l.emit(token.CRYPT_PASS)
 	}
 
-	l.acceptExceptRun(newline)
-	l.acceptRun(newline)
-	l.ignore()
 	return nextStateFn
 }
 
@@ -594,45 +632,38 @@ func lexMD5PassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		l.emit(token.MD5_PASS)
 	}
 
-	l.acceptExceptRun(newline)
-	l.acceptRun(newline)
-	l.ignore()
 	return nextStateFn
 }
 
 func lexMailFromPassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
-	fmt.Println("beginning email address", l.columnNum)
 	if !l.acceptExceptRun(whitespace + newline + at) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
 
-	fmt.Println("eating @", l.columnNum)
 	if !l.accept(at) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
 
-	fmt.Println("eating domain", l.columnNum)
 	if !l.acceptRun(alphaNumeric + period + hyphen + underscore + colon) {
 		l.emit(token.ILLEGAL)
 		return nil
 	}
 
-	fmt.Println("emiting token", l.columnNum)
 	if l.pos > l.start {
 		l.emit(token.MAIL_FROM_PASS)
 	}
-
-	l.acceptRun(whitespace)
-	l.accept(pound)
-	l.acceptExceptRun(newline)
-	l.acceptRun(newline)
-	l.ignore()
 
 	return nextStateFn
 }
 
 func lexNoAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
-	return nil
+	l.pos += len(token.NO_AUTH.Name())
+
+	if l.pos > l.start {
+		l.emit(token.NO_AUTH)
+	}
+
+	return nextStateFn
 }
