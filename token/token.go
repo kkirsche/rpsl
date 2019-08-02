@@ -12,7 +12,6 @@ type Type int
 type Token struct {
 	Type    Type
 	Literal string
-	Column  int
 	Line    int
 }
 
@@ -29,6 +28,7 @@ const (
 	STRING
 	NUMBER
 	EMAIL
+	DATE
 	PGP_KEY
 	CRYPT_PASS
 	MD5_PASS
@@ -71,6 +71,7 @@ var names = map[Type]string{
 	STRING:         "STRING",
 	NUMBER:         "NUMBER",
 	EMAIL:          "EMAIL",
+	DATE:           "DATE",
 	PGP_KEY:        "PGP_KEY",
 	CRYPT_PASS:     "CRYPT_PASS",
 	MD5_PASS:       "MD5_PASS",
