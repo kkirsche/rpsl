@@ -26,6 +26,7 @@ const (
 
 	// Data Types
 	STRING
+	NIC_HANDLE
 	NUMBER
 	EMAIL
 	DATE
@@ -69,6 +70,7 @@ var names = map[Type]string{
 	ILLEGAL: "ILLEGAL",
 	// Data Types
 	STRING:         "STRING",
+	NIC_HANDLE:     "NIC_HANDLE",
 	NUMBER:         "NUMBER",
 	EMAIL:          "EMAIL",
 	DATE:           "DATE",

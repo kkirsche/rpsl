@@ -38,11 +38,11 @@ remarks:        remark
 
 	tests := testExpectations{
 		testExpectation{token.MAINTAINER, "mntner", 1},
-		testExpectation{token.STRING, "TEST-MNT", 1},
+		testExpectation{token.NIC_HANDLE, "TEST-MNT", 1},
 		testExpectation{token.DESCRIPTION, "descr", 2},
 		testExpectation{token.STRING, "unįcöde tæst2 🌈🦄", 2}, // note that we're ending on column 34 because the emoji are width 2
 		testExpectation{token.ADMIN_CONTACT, "admin-c", 3},
-		testExpectation{token.STRING, "PERSON-TEST", 3},
+		testExpectation{token.NIC_HANDLE, "PERSON-TEST", 3},
 		testExpectation{token.NOTIFY_EMAIL, "notify", 4},
 		testExpectation{token.EMAIL, "notify@example.net", 4},
 		testExpectation{token.UPDATED_TO_EMAIL, "upd-to", 5},
@@ -62,10 +62,10 @@ remarks:        remark
 		testExpectation{token.AUTHENTICATION, "auth", 12},
 		testExpectation{token.NO_AUTH, "NONE", 12},
 		testExpectation{token.MAINTAINED_BY, "mnt-by", 13},
-		testExpectation{token.STRING, "TEST-MNT", 13},
+		testExpectation{token.NIC_HANDLE, "TEST-MNT", 13},
 		testExpectation{token.MAINTAINED_BY, "mnt-by", 14},
-		testExpectation{token.STRING, "OTHER1-MNT", 14},
-		testExpectation{token.STRING, "OTHER2-MNT", 14},
+		testExpectation{token.NIC_HANDLE, "OTHER1-MNT", 14},
+		testExpectation{token.NIC_HANDLE, "OTHER2-MNT", 14},
 		testExpectation{token.CHANGED_AT_AND_BY, "changed", 15},
 		testExpectation{token.EMAIL, "changed@example.com", 15},
 		testExpectation{token.DATE, "20190701", 15},

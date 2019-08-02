@@ -248,28 +248,7 @@ func lexMaintainerClassName(l *Lexer) stateFn {
 	// ignore the colon and any whitespace following it
 	l.ignore()
 
-	return lexMaintainerClassNameValue
-}
-
-func lexMaintainerClassNameValue(l *Lexer) stateFn {
-	// object names must start with a letter
-	if !l.accept(alpha) {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-
-	l.acceptRun(alphaNumeric + hyphen + underscore)
-	if l.pos > l.start {
-		l.emit(token.STRING)
-	}
-
-	if !l.acceptRun(newline) {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.ignore()
-
-	return lexMaintainerAttributes(l)
+	return lexNICHandleAttrValue(l, lexMaintainerAttributes)
 }
 
 func lexMaintainerAttributes(l *Lexer) stateFn {
@@ -444,7 +423,7 @@ func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 	l.acceptRun(alphaNumeric + hyphen + underscore)
 	if l.pos > l.start {
-		l.emit(token.STRING)
+		l.emit(token.NIC_HANDLE)
 	}
 
 	l.acceptRun(whitespace)
@@ -462,7 +441,7 @@ func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 		l.acceptRun(alphaNumeric + hyphen + underscore)
 		if l.pos > l.start {
-			l.emit(token.STRING)
+			l.emit(token.NIC_HANDLE)
 		}
 
 		l.acceptRun(whitespace)
