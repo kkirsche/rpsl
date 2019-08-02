@@ -69,6 +69,8 @@ remarks:        remark
 		testExpectation{token.CHANGED_AT_AND_BY, "changed", 15},
 		testExpectation{token.EMAIL, "changed@example.com", 15},
 		testExpectation{token.DATE, "20190701", 15},
+		testExpectation{token.REMARKS, "remarks", 16},
+		testExpectation{token.STRING, "unįcöde tæst 🌈🦄", 16},
 		testExpectation{token.EOF, "", 0},
 	}
 

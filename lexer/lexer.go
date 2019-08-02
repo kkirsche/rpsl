@@ -48,6 +48,7 @@ type Lexer struct {
 // recursive function which allows us to move between states without having to
 // forget the state and rediscover it each time.
 type stateFn func(*Lexer) stateFn
+type stagedStateFn func(*Lexer, stateFn) stateFn
 
 // eof constant is a magic constant allowing us to signal that we've hit the
 // end of the file
@@ -191,7 +192,7 @@ func lexObjectClass(l *Lexer) stateFn {
 	for {
 		switch {
 		case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER.Name()):
-			return lexMaintainerClassName(l)
+			return lexAttrName(l, token.MAINTAINER, lexNICHandleAttrValue, lexMaintainerAttributes)
 		case strings.HasPrefix(l.input[l.pos:], token.PERSON.Name()):
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.ROLE.Name()):
@@ -236,21 +237,6 @@ func lexObjectClass(l *Lexer) stateFn {
 	// return nil
 }
 
-func lexMaintainerClassName(l *Lexer) stateFn {
-	l.pos += len(token.MAINTAINER.Name())
-	l.emit(token.MAINTAINER)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexNICHandleAttrValue(l, lexMaintainerAttributes)
-}
-
 func lexMaintainerAttributes(l *Lexer) stateFn {
 	l.acceptRun(whitespace)
 	if l.accept(pound) {
@@ -262,27 +248,26 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 
 	switch {
 	case strings.HasPrefix(l.input[l.pos:], token.DESCRIPTION.Name()):
-		return lexDescriptionAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.DESCRIPTION, lexFreeformAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.AUTHENTICATION.Name()):
-		return lexAuthenticationAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.AUTHENTICATION, lexAuthenticationAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.UPDATED_TO_EMAIL.Name()):
-		return lexUpdatedToEmailAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.UPDATED_TO_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER_NOTIFY_EMAIL.Name()):
-		return lexMaintainerNotifyEmailAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.TECHNICAL_CONTACT.Name()):
 		// TODO
 		return lexObjectClass(l)
 	case strings.HasPrefix(l.input[l.pos:], token.ADMIN_CONTACT.Name()):
-		return lexAdminContactAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.ADMIN_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.REMARKS.Name()):
-		// TODO
-		return lexObjectClass(l)
+		return lexAttrName(l, token.REMARKS, lexFreeformAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.NOTIFY_EMAIL.Name()):
-		return lexNotifyEmailAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINED_BY.Name()):
-		return lexMaintainedByAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.MAINTAINED_BY, lexNICHandleAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.CHANGED_AT_AND_BY.Name()):
-		return lexChangedAtAndByAttrName(l, lexMaintainerAttributes)
+		return lexAttrName(l, token.CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.RECORD_SOURCE.Name()):
 		// TODO
 		return lexObjectClass(l)
@@ -291,9 +276,9 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 	}
 }
 
-func lexDescriptionAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.DESCRIPTION.Name())
-	l.emit(token.DESCRIPTION)
+func lexAttrName(l *Lexer, tokenType token.Type, valueStateFn stagedStateFn, returnToStateFn stateFn) stateFn {
+	l.pos += len(tokenType.Name())
+	l.emit(tokenType)
 
 	if !l.accept(":") {
 		l.emit(token.ILLEGAL)
@@ -303,113 +288,7 @@ func lexDescriptionAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
 	l.acceptRun(whitespace)
 	// ignore the colon and any whitespace following it
 	l.ignore()
-	return lexFreeformAttrValue(l, returnToStateFn)
-}
-
-func lexAdminContactAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.ADMIN_CONTACT.Name())
-	l.emit(token.ADMIN_CONTACT)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexNICHandleAttrValue(l, lexMaintainerAttributes)
-}
-
-func lexNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.NOTIFY_EMAIL.Name())
-	l.emit(token.NOTIFY_EMAIL)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexEmailAttrValue(l, returnToStateFn)
-}
-
-func lexUpdatedToEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.UPDATED_TO_EMAIL.Name())
-	l.emit(token.UPDATED_TO_EMAIL)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexEmailAttrValue(l, returnToStateFn)
-}
-
-func lexMaintainerNotifyEmailAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.MAINTAINER_NOTIFY_EMAIL.Name())
-	l.emit(token.MAINTAINER_NOTIFY_EMAIL)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexEmailAttrValue(l, returnToStateFn)
-}
-
-func lexAuthenticationAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.AUTHENTICATION.Name())
-	l.emit(token.AUTHENTICATION)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexAuthenticationAttrValue(l, returnToStateFn)
-}
-
-func lexMaintainedByAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.MAINTAINED_BY.Name())
-	l.emit(token.MAINTAINED_BY)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexNICHandleAttrValue(l, returnToStateFn)
-}
-
-func lexChangedAtAndByAttrName(l *Lexer, returnToStateFn stateFn) stateFn {
-	l.pos += len(token.CHANGED_AT_AND_BY.Name())
-	l.emit(token.CHANGED_AT_AND_BY)
-
-	if !l.accept(":") {
-		l.emit(token.ILLEGAL)
-		return nil
-	}
-
-	l.acceptRun(whitespace)
-	// ignore the colon and any whitespace following it
-	l.ignore()
-
-	return lexEmailAndDateAttrValue(l, returnToStateFn)
+	return valueStateFn(l, returnToStateFn)
 }
 
 func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
