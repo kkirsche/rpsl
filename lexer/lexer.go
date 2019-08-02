@@ -194,28 +194,40 @@ func lexObjectClass(l *Lexer) stateFn {
 		case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER.Name()):
 			return lexAttrName(l, token.MAINTAINER, lexNICHandleAttrValue, lexMaintainerAttributes)
 		case strings.HasPrefix(l.input[l.pos:], token.PERSON.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.ROLE.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.AUT_NUM.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.AS_SET.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.ROUTE.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.ROUTE6.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.ROUTE_SET.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.FILTER_SET.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.ROUTER.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.ROUTER_SET.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.PEERING_SET.Name()):
+			// TODO
 			fallthrough
 		case strings.HasPrefix(l.input[l.pos:], token.DICTIONARY.Name()):
+			// TODO
 			fallthrough
 		default:
 			l.emit(token.EOF)

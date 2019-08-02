@@ -27,6 +27,7 @@ const (
 	// Data Types
 	STRING
 	NIC_HANDLE
+	REGISTRY_NAME
 	NUMBER
 	EMAIL
 	DATE
@@ -62,7 +63,7 @@ const (
 	NOTIFY_EMAIL
 	MAINTAINED_BY
 	CHANGED_AT_AND_BY
-	RECORD_SOURCE
+	REGISTRY_SOURCE
 )
 
 var names = map[Type]string{
@@ -71,6 +72,7 @@ var names = map[Type]string{
 	// Data Types
 	STRING:         "STRING",
 	NIC_HANDLE:     "NIC_HANDLE",
+	REGISTRY_NAME:  "REGISTRY_NAME",
 	NUMBER:         "NUMBER",
 	EMAIL:          "EMAIL",
 	DATE:           "DATE",
@@ -104,7 +106,7 @@ var names = map[Type]string{
 	NOTIFY_EMAIL:            "NOTIFY_EMAIL",
 	MAINTAINED_BY:           "MAINTAINED_BY",
 	CHANGED_AT_AND_BY:       "CHANGED_AT_AND_BY",
-	RECORD_SOURCE:           "RECORD_SOURCE",
+	REGISTRY_SOURCE:         "REGISTRY_SOURCE",
 }
 
 var objectStrings = map[Type]string{
@@ -133,7 +135,7 @@ var objectStrings = map[Type]string{
 	NOTIFY_EMAIL:            "notify",
 	MAINTAINED_BY:           "mnt-by",
 	CHANGED_AT_AND_BY:       "changed",
-	RECORD_SOURCE:           "source",
+	REGISTRY_SOURCE:         "source",
 	// Object Value Prefixes
 	PGP_KEY:        "PGPKey-",
 	CRYPT_PASS:     "CRYPT-PW",
