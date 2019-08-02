@@ -256,8 +256,7 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER_NOTIFY_EMAIL.Name()):
 		return lexAttrName(l, token.MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.TECHNICAL_CONTACT.Name()):
-		// TODO
-		return lexObjectClass(l)
+		return lexAttrName(l, token.TECHNICAL_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ADMIN_CONTACT.Name()):
 		return lexAttrName(l, token.ADMIN_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.REMARKS.Name()):
@@ -268,9 +267,8 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 		return lexAttrName(l, token.MAINTAINED_BY, lexNICHandleAttrValue, lexMaintainerAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.CHANGED_AT_AND_BY.Name()):
 		return lexAttrName(l, token.CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.RECORD_SOURCE.Name()):
-		// TODO
-		return lexObjectClass(l)
+	case strings.HasPrefix(l.input[l.pos:], token.REGISTRY_SOURCE.Name()):
+		return lexAttrName(l, token.REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexMaintainerAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -386,6 +384,15 @@ func lexFreeformAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	l.acceptExceptRun(newline)
 	if l.pos > l.start {
 		l.emit(token.STRING)
+	}
+
+	return nextStateFn
+}
+
+func lexRegistrySourceAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	l.acceptExceptRun(newline)
+	if l.pos > l.start {
+		l.emit(token.REGISTRY_NAME)
 	}
 
 	return nextStateFn

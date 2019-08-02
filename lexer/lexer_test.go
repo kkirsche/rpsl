@@ -32,6 +32,7 @@ mnt-by:         TEST-MNT
 mnt-by:         OTHER1-MNT,OTHER2-MNT
 changed:        changed@example.com 20190701 # comment
 remarks:        unįcöde tæst 🌈🦄
+tech-c:					PERSON-TEST
 source:         TEST
 remarks:        remark
 `
@@ -71,6 +72,12 @@ remarks:        remark
 		testExpectation{token.DATE, "20190701", 15},
 		testExpectation{token.REMARKS, "remarks", 16},
 		testExpectation{token.STRING, "unįcöde tæst 🌈🦄", 16},
+		testExpectation{token.TECHNICAL_CONTACT, "tech-c", 17},
+		testExpectation{token.NIC_HANDLE, "PERSON-TEST", 17},
+		testExpectation{token.REGISTRY_SOURCE, "source", 18},
+		testExpectation{token.REGISTRY_NAME, "TEST", 18},
+		testExpectation{token.REMARKS, "remarks", 19},
+		testExpectation{token.STRING, "remark", 19},
 		testExpectation{token.EOF, "", 0},
 	}
 
