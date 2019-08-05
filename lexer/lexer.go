@@ -191,42 +191,41 @@ func (l *Lexer) acceptExceptRun(invalid string) bool {
 func lexObjectClass(l *Lexer) stateFn {
 	for {
 		switch {
-		case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER.Name()):
-			return lexAttrName(l, token.MAINTAINER, lexNICHandleAttrValue, lexMaintainerAttributes)
-		case strings.HasPrefix(l.input[l.pos:], token.PERSON.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_MAINTAINER.Name()):
+			return lexAttrName(l, token.CLASS_MAINTAINER, lexNICHandleAttrValue, lexMaintainerAttributes)
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_PERSON.Name()):
+			return lexAttrName(l, token.CLASS_PERSON, lexFreeformAttrValue, lexPersonAttributes)
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROLE.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.ROLE.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_AUT_NUM.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.AUT_NUM.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_AS_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.AS_SET.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTE.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.ROUTE.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTE6.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.ROUTE6.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTE_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.ROUTE_SET.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_FILTER_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.FILTER_SET.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTER.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.ROUTER.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTER_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.ROUTER_SET.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_PEERING_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.PEERING_SET.Name()):
-			// TODO
-			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.DICTIONARY.Name()):
+		case strings.HasPrefix(l.input[l.pos:], token.CLASS_DICTIONARY.Name()):
 			// TODO
 			fallthrough
 		default:
@@ -259,28 +258,61 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 	l.ignore()
 
 	switch {
-	case strings.HasPrefix(l.input[l.pos:], token.DESCRIPTION.Name()):
-		return lexAttrName(l, token.DESCRIPTION, lexFreeformAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.AUTHENTICATION.Name()):
-		return lexAttrName(l, token.AUTHENTICATION, lexAuthenticationAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.UPDATED_TO_EMAIL.Name()):
-		return lexAttrName(l, token.UPDATED_TO_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINER_NOTIFY_EMAIL.Name()):
-		return lexAttrName(l, token.MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.TECHNICAL_CONTACT.Name()):
-		return lexAttrName(l, token.TECHNICAL_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ADMIN_CONTACT.Name()):
-		return lexAttrName(l, token.ADMIN_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.REMARKS.Name()):
-		return lexAttrName(l, token.REMARKS, lexFreeformAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.NOTIFY_EMAIL.Name()):
-		return lexAttrName(l, token.NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.MAINTAINED_BY.Name()):
-		return lexAttrName(l, token.MAINTAINED_BY, lexNICHandleAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.CHANGED_AT_AND_BY.Name()):
-		return lexAttrName(l, token.CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexMaintainerAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.REGISTRY_SOURCE.Name()):
-		return lexAttrName(l, token.REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_DESCRIPTION.Name()):
+		return lexAttrName(l, token.ATTR_DESCRIPTION, lexFreeformAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_AUTHENTICATION.Name()):
+		return lexAttrName(l, token.ATTR_AUTHENTICATION, lexAuthenticationAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_UPDATED_TO_EMAIL.Name()):
+		return lexAttrName(l, token.ATTR_UPDATED_TO_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINER_NOTIFY_EMAIL.Name()):
+		return lexAttrName(l, token.ATTR_MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_TECHNICAL_CONTACT.Name()):
+		return lexAttrName(l, token.ATTR_TECHNICAL_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADMIN_CONTACT.Name()):
+		return lexAttrName(l, token.ATTR_ADMIN_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REMARKS.Name()):
+		return lexAttrName(l, token.ATTR_REMARKS, lexFreeformAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NOTIFY_EMAIL.Name()):
+		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINED_BY.Name()):
+		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_CHANGED_AT_AND_BY.Name()):
+		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexMaintainerAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REGISTRY_SOURCE.Name()):
+		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexMaintainerAttributes)
+	default:
+		return lexObjectClass(l)
+	}
+}
+
+func lexPersonAttributes(l *Lexer) stateFn {
+	l.acceptRun(whitespace)
+	if l.accept(pound) {
+		l.acceptExceptRun(newline)
+		l.acceptRun(newline)
+	}
+	l.accept(newline)
+	l.ignore()
+
+	switch {
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NIC_HANDLE.Name()):
+		return lexAttrName(l, token.ATTR_NIC_HANDLE, lexNICHandleAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADDRESS.Name()):
+		return lexAttrName(l, token.ATTR_ADDRESS, lexFreeformAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_PHONE_NUMBER.Name()):
+		return lexAttrName(l, token.ATTR_PHONE_NUMBER, lexPhoneOrFaxAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_FAX_NUMBER.Name()):
+		return lexAttrName(l, token.ATTR_FAX_NUMBER, lexPhoneOrFaxAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_EMAIL.Name()):
+		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NOTIFY_EMAIL.Name()):
+		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_CHANGED_AT_AND_BY.Name()):
+		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REGISTRY_SOURCE.Name()):
+		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexPersonAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINED_BY.Name()):
+		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexPersonAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -312,7 +344,7 @@ func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 	l.acceptRun(alphaNumeric + hyphen + underscore)
 	if l.pos > l.start {
-		l.emit(token.NIC_HANDLE)
+		l.emit(token.DATA_NIC_HANDLE)
 	}
 
 	l.acceptRun(whitespace)
@@ -330,7 +362,7 @@ func lexNICHandleAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 		l.acceptRun(alphaNumeric + hyphen + underscore)
 		if l.pos > l.start {
-			l.emit(token.NIC_HANDLE)
+			l.emit(token.DATA_NIC_HANDLE)
 		}
 
 		l.acceptRun(whitespace)
@@ -360,7 +392,7 @@ func lexEmailAndDateAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 
 	if l.pos > l.start {
-		l.emit(token.DATE)
+		l.emit(token.DATA_DATE)
 	}
 
 	return nextStateFn
@@ -386,7 +418,7 @@ func lexEmailAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 
 	if l.pos > l.start {
-		l.emit(token.EMAIL)
+		l.emit(token.DATA_EMAIL)
 	}
 
 	return nextStateFn
@@ -395,7 +427,7 @@ func lexEmailAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 func lexFreeformAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	l.acceptExceptRun(newline)
 	if l.pos > l.start {
-		l.emit(token.STRING)
+		l.emit(token.DATA_STRING)
 	}
 
 	return nextStateFn
@@ -404,7 +436,7 @@ func lexFreeformAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 func lexRegistrySourceAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	l.acceptExceptRun(newline)
 	if l.pos > l.start {
-		l.emit(token.REGISTRY_NAME)
+		l.emit(token.DATA_REGISTRY_NAME)
 	}
 
 	return nextStateFn
@@ -412,26 +444,26 @@ func lexRegistrySourceAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 func lexAuthenticationAttrValue(l *Lexer, returnToStateFn stateFn) stateFn {
 	switch {
-	case strings.HasPrefix(l.input[l.pos:], token.PGP_KEY.Name()):
-		l.pos += len(token.PGP_KEY.Name())
+	case strings.HasPrefix(l.input[l.pos:], token.DATA_PGP_KEY.Name()):
+		l.pos += len(token.DATA_PGP_KEY.Name())
 		l.ignore()
 		return lexPGPKeyAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.CRYPT_PASS.Name()):
-		l.pos += len(token.CRYPT_PASS.Name())
+	case strings.HasPrefix(l.input[l.pos:], token.DATA_CRYPT_PASS.Name()):
+		l.pos += len(token.DATA_CRYPT_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexCryptPassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.MD5_PASS.Name()):
-		l.pos += len(token.MD5_PASS.Name())
+	case strings.HasPrefix(l.input[l.pos:], token.DATA_MD5_PASS.Name()):
+		l.pos += len(token.DATA_MD5_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexMD5PassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.MAIL_FROM_PASS.Name()):
-		l.pos += len(token.MAIL_FROM_PASS.Name())
+	case strings.HasPrefix(l.input[l.pos:], token.DATA_MAIL_FROM_PASS.Name()):
+		l.pos += len(token.DATA_MAIL_FROM_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexMailFromPassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.NO_AUTH.Name()):
+	case strings.HasPrefix(l.input[l.pos:], token.DATA_NO_AUTH.Name()):
 		return lexNoAuthAttrValue(l, returnToStateFn)
 	default:
 		l.emit(token.ILLEGAL)
@@ -449,7 +481,7 @@ func lexPGPKeyAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 
 	if l.pos > l.start {
-		l.emit(token.PGP_KEY)
+		l.emit(token.DATA_PGP_KEY)
 	}
 
 	return nextStateFn
@@ -466,7 +498,7 @@ func lexCryptPassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 
 	if l.pos > l.start {
-		l.emit(token.CRYPT_PASS)
+		l.emit(token.DATA_CRYPT_PASS)
 	}
 
 	return nextStateFn
@@ -506,7 +538,7 @@ func lexMD5PassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 
 	if l.pos > l.start {
-		l.emit(token.MD5_PASS)
+		l.emit(token.DATA_MD5_PASS)
 	}
 
 	return nextStateFn
@@ -529,17 +561,62 @@ func lexMailFromPassAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	}
 
 	if l.pos > l.start {
-		l.emit(token.MAIL_FROM_PASS)
+		l.emit(token.DATA_MAIL_FROM_PASS)
 	}
 
 	return nextStateFn
 }
 
 func lexNoAuthAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
-	l.pos += len(token.NO_AUTH.Name())
+	l.pos += len(token.DATA_NO_AUTH.Name())
 
 	if l.pos > l.start {
-		l.emit(token.NO_AUTH)
+		l.emit(token.DATA_NO_AUTH)
+	}
+
+	return nextStateFn
+}
+
+func lexPhoneOrFaxAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// The phone and the fax-no attributes have the following syntax:
+	//    phone: +<country-code> <area code> <city> <subscriber> [ext. <extension>]
+
+	if !l.accept(plus) {
+		l.emit(token.ILLEGAL)
+	}
+
+	// country code
+	l.acceptRun(digits)
+	l.acceptRun(whitespace)
+
+	// area code
+	l.acceptRun(digits)
+	l.acceptRun(whitespace)
+
+	// city
+	l.acceptRun(digits)
+	l.acceptRun(whitespace)
+
+	// subscriber
+	l.acceptRun(digits)
+	l.acceptRun(whitespace)
+
+	// check if we find the e from ext.
+	if l.accept("e") {
+		// read in the remaining xt.
+		ext := []string{"x", "t", "."}
+		for _, x := range ext {
+			if !l.accept(x) {
+				l.emit(token.ILLEGAL)
+			}
+		}
+
+		// extension
+		l.acceptRun(digits)
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_TELEPHONE_OR_FAX_NUMBER)
 	}
 
 	return nextStateFn
