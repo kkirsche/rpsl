@@ -240,3 +240,88 @@ remarks:        remark
 		}
 	}
 }
+
+func TestLexAutonomousSystemNumber(t *testing.T) {
+	input := `aut-num:        as065537
+as-name:        TEST-AS
+descr:          description
++               foo
+remarks:        ---> Uplinks
+export:         to AS3356 announce AS-SETTEST
+import:         from AS3356 accept ANY
+export:         to AS174 announce AS-SETTEST
+import:         from AS174 accept ANY
+mp-export:      afi ipv6.unicast to AS174 announce AS-SETTEST
+mp-import:      afi ipv6.unicast from AS174 accept ANY
+export:         to AS8359 announce AS-SETTEST
+import:         from AS8359 accept ANY
+export:         to AS3257 announce AS-SETTEST
+import:         from AS3257 accept ANY
+export:         to AS3549 announce AS-SETTEST
+import:         from AS3549 accept ANY
+export:         to AS9002 announce AS-SETTEST
+import:         from AS9002 accept ANY
+mp-export:      afi ipv6.unicast to AS9002 anunce AS-SETTEST
+mp-import:      afi ipv6.unicast from AS9002 accept ANY
+remarks:        ---> Peers
+export:         to AS31117 announce AS-SETTEST AS-UAIX
+import:         from AS31117 accept AS-ENERGOTEL
+export:         to AS8501 announce AS-SETTEST AS-UAIX
+import:         from AS8501 accept AS-PLNET
+export:         to AS35297 announce AS-SETTEST
+import:         from AS35297 accept AS-DL-WORLD
+export:         to AS13188 announce AS-SETTEST
+import:         from AS13188 accept AS-BANKINFORM
+export:         to AS12389 announce AS-SETTEST
+import:         from AS12389 accept AS-ROSTELECOM
+export:         to AS35395 announce AS-SETTEST
+import:         from AS35395 accept AS-GECIXUAIX
+export:         to AS50952 announce AS-SETTEST
+import:         from AS50952 accept AS-DATAIX
+admin-c:        PERSON-TEST
+tech-c:         PERSON-TEST
+mnt-by:         TEST-MNT
+changed:        changed@example.com 20190701 # comment
+source:         TEST
+remarks:        remark
+`
+
+	tests := testExpectations{
+		testExpectation{token.CLASS_AUT_NUM, "aut-num", 1},
+		testExpectation{token.DATA_ASN, "as065537", 1},
+		testExpectation{token.ATTR_AS_NAME, "as-name", 2},
+		testExpectation{token.DATA_NIC_HANDLE, "TEST-AS", 2},
+		testExpectation{token.ATTR_DESCRIPTION, "descr", 3},
+		testExpectation{token.DATA_STRING, "description", 3},
+		testExpectation{token.ATTR_CONTINUATION, "+", 4},
+		testExpectation{token.DATA_STRING, "foo", 4},
+		testExpectation{token.ATTR_REMARKS, "remarks", 5},
+		testExpectation{token.DATA_STRING, "---> Uplinks", 5},
+		testExpectation{token.ATTR_EXPORT, "export", 6},
+		testExpectation{token.DATA_EXPORT_POLICY, "to AS3356 announce AS-SETTEST", 6},
+		testExpectation{token.EOF, "", 0},
+	}
+
+	l := Lex("maintainer-object", input)
+
+	for _, tt := range tests {
+		tok := l.NextToken()
+		failure := false
+
+		if !assert.Equal(t, tt.typ, tok.Type, "Invalid token type '%s', expected '%s'", tok.Type, tt.typ) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.line, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
+			failure = true
+		}
+
+		if failure {
+			t.FailNow()
+		}
+	}
+}

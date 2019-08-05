@@ -2,6 +2,7 @@ package token
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Type is the token type
@@ -25,6 +26,7 @@ const (
 	ILLEGAL
 
 	// Data Types
+	DATA_ASN
 	DATA_CRYPT_PASS
 	DATA_DATE
 	DATA_EMAIL
@@ -37,6 +39,7 @@ const (
 	DATA_REGISTRY_NAME
 	DATA_STRING
 	DATA_TELEPHONE_OR_FAX_NUMBER
+	DATA_EXPORT_POLICY
 
 	// Object Classes
 	CLASS_AS_SET
@@ -55,9 +58,12 @@ const (
 
 	// Object Attributes
 	ATTR_ADDRESS
+	ATTR_EXPORT
+	ATTR_AS_NAME
 	ATTR_ADMIN_CONTACT
 	ATTR_AUTHENTICATION
 	ATTR_CHANGED_AT_AND_BY
+	ATTR_CONTINUATION // +: indicates repeat of the last attribute type / name
 	ATTR_DESCRIPTION
 	ATTR_EMAIL
 	ATTR_FAX_NUMBER
@@ -76,6 +82,7 @@ var names = map[Type]string{
 	EOF:     "EOF",
 	ILLEGAL: "ILLEGAL",
 	// Data Types
+	DATA_ASN:                     "DATA_ASN",
 	DATA_CRYPT_PASS:              "DATA_CRYPT_PASS",
 	DATA_DATE:                    "DATA_DATE",
 	DATA_EMAIL:                   "DATA_EMAIL",
@@ -88,6 +95,7 @@ var names = map[Type]string{
 	DATA_REGISTRY_NAME:           "DATA_REGISTRY_NAME",
 	DATA_STRING:                  "DATA_STRING",
 	DATA_TELEPHONE_OR_FAX_NUMBER: "DATA_TELEPHONE_OR_FAX_NUMBER",
+	DATA_EXPORT_POLICY:           "DATA_EXPORT_POLICY",
 	// Object Classes
 	CLASS_AS_SET:      "CLASS_AS_SET",
 	CLASS_AUT_NUM:     "CLASS_AUT_NUM",
@@ -104,9 +112,12 @@ var names = map[Type]string{
 	CLASS_ROUTE_SET:   "CLASS_ROUTE_SET",
 	// Object Attributes
 	ATTR_ADDRESS:                 "ATTR_ADDRESS",
+	ATTR_AS_NAME:                 "ATTR_AS_NAME",
+	ATTR_EXPORT:                  "ATTR_EXPORT",
 	ATTR_ADMIN_CONTACT:           "ATTR_ADMIN_CONTACT",
 	ATTR_AUTHENTICATION:          "ATTR_AUTHENTICATION",
 	ATTR_CHANGED_AT_AND_BY:       "ATTR_CHANGED_AT_AND_BY",
+	ATTR_CONTINUATION:            "ATTR_CONTINUATION",
 	ATTR_DESCRIPTION:             "ATTR_DESCRIPTION",
 	ATTR_EMAIL:                   "ATTR_EMAIL",
 	ATTR_FAX_NUMBER:              "ATTR_FAX_NUMBER",
@@ -138,9 +149,12 @@ var objectStrings = map[Type]string{
 	CLASS_ROUTE_SET:   "route-set",
 	// Object Attributes
 	ATTR_ADDRESS:                 "address",
+	ATTR_AS_NAME:                 "as-name",
+	ATTR_EXPORT:                  "export",
 	ATTR_ADMIN_CONTACT:           "admin-c",
 	ATTR_AUTHENTICATION:          "auth",
 	ATTR_CHANGED_AT_AND_BY:       "changed",
+	ATTR_CONTINUATION:            "+",
 	ATTR_DESCRIPTION:             "descr",
 	ATTR_EMAIL:                   "e-mail",
 	ATTR_FAX_NUMBER:              "fax-no",
@@ -176,7 +190,7 @@ func (t Type) String() string {
 // value
 func (t Type) Name() string {
 	if tok, ok := objectStrings[t]; ok {
-		return tok
+		return strings.ToLower(tok)
 	}
 
 	panic(fmt.Sprintf("Unknown token type received: %d", t))

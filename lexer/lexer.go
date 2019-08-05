@@ -9,38 +9,39 @@ import (
 )
 
 const (
-	alphaLowercase = "abcdefghijklmnopqrstuvwxyz"
-	alphaUppercase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	alpha          = alphaLowercase + alphaUppercase
-	digits         = "0123456789"
-	hexDigits      = digits + "ABCDEFabcedf"
-	alphaNumeric   = alpha + digits
-	period         = "."
-	hyphen         = "-"
-	underscore     = "_"
-	colon          = ":"
-	plus           = "+"
-	at             = "@"
-	pound          = "#"
-	forwardSlash   = "/"
-	backSlash      = "\\"
-	dollarSign     = "$"
-	whitespace     = " \t\x85\xA0"
-	newline        = "\n\v\f\r"
-	comma          = ","
+	alpha        = "abcdefghijklmnopqrstuvwxyz"
+	digits       = "0123456789"
+	hexDigits    = digits + "ABCDEFabcedf"
+	alphaNumeric = alpha + digits
+	period       = "."
+	hyphen       = "-"
+	underscore   = "_"
+	colon        = ":"
+	semicolon    = ";"
+	equal        = "="
+	plus         = "+"
+	at           = "@"
+	pound        = "#"
+	forwardSlash = "/"
+	backSlash    = "\\"
+	dollarSign   = "$"
+	whitespace   = " \t\x85\xA0"
+	newline      = "\n\v\f\r"
+	comma        = ","
 )
 
 // Lexer is the structure responsible for managing the lexical scanning
 // of the input text.
 type Lexer struct {
-	name          string           // name is the input text name, used for error reporting purposes
-	input         string           // the input data / reader being scanned by the Lexer
-	start         int              // the start position of the item currently being read
-	pos           int              // the current read position in the input, we tokenize input[start:pos]
-	lastRune      rune             // the last read rune
-	lastRuneWidth int              // unicode has dynamic width characters, this tracks the width of the last read rune
-	tokens        chan token.Token // channel of scanned tokens
-	lineNum       int              // the current line number in the input text (based on line feeds)
+	name             string           // name is the input text name, used for error reporting purposes
+	input            string           // the input data / reader being scanned by the Lexer
+	start            int              // the start position of the item currently being read
+	pos              int              // the current read position in the input, we tokenize input[start:pos]
+	lastRune         rune             // the last read rune
+	lastRuneWidth    int              // unicode has dynamic width characters, this tracks the width of the last read rune
+	tokens           chan token.Token // channel of scanned tokens
+	lineNum          int              // the current line number in the input text (based on line feeds)
+	continuationPath func(*Lexer, stateFn) stateFn
 }
 
 // stateFn is a function representing the current lex state. A lex state may be
@@ -147,6 +148,7 @@ func (l *Lexer) ignore() {
 }
 
 func (l *Lexer) accept(valid string) bool {
+	valid = strings.ToLower(valid) + strings.ToUpper(valid)
 	if strings.IndexRune(valid, l.readRune()) >= 0 {
 		return true
 	}
@@ -155,6 +157,7 @@ func (l *Lexer) accept(valid string) bool {
 }
 
 func (l *Lexer) acceptExcept(invalid string) bool {
+	invalid = strings.ToLower(invalid) + strings.ToUpper(invalid)
 	if strings.IndexRune(invalid, l.readRune()) == -1 {
 		return true
 	}
@@ -164,6 +167,7 @@ func (l *Lexer) acceptExcept(invalid string) bool {
 
 // acceptRun is used to read in any as many of the valid characters as possible
 func (l *Lexer) acceptRun(valid string) bool {
+	valid = strings.ToLower(valid) + strings.ToUpper(valid)
 	accepted := false
 	for l.accept(valid) == true {
 		accepted = true
@@ -175,6 +179,7 @@ func (l *Lexer) acceptRun(valid string) bool {
 // acceptExceptRun is used to read in as many characters which do not match the
 // invalid string as possible
 func (l *Lexer) acceptExceptRun(invalid string) bool {
+	invalid = strings.ToLower(invalid) + strings.ToUpper(invalid)
 	accepted := false
 	for l.acceptExcept(invalid) == true {
 		accepted = true
@@ -191,40 +196,39 @@ func (l *Lexer) acceptExceptRun(invalid string) bool {
 func lexObjectClass(l *Lexer) stateFn {
 	for {
 		switch {
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_MAINTAINER.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_MAINTAINER.Name()):
 			return lexAttrName(l, token.CLASS_MAINTAINER, lexNICHandleAttrValue, lexClassAttributes)
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_PERSON.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_PERSON.Name()):
 			return lexAttrName(l, token.CLASS_PERSON, lexFreeformAttrValue, lexClassAttributes)
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROLE.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROLE.Name()):
 			return lexAttrName(l, token.CLASS_ROLE, lexFreeformAttrValue, lexClassAttributes)
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_AUT_NUM.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AUT_NUM.Name()):
+			return lexAttrName(l, token.CLASS_AUT_NUM, lexAutNumAttrValue, lexClassAttributes)
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AS_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_AS_SET.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTE.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE6.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTE6.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTE_SET.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_FILTER_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_FILTER_SET.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTER.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTER.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTER_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROUTER_SET.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_PEERING_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_PEERING_SET.Name()):
-			// TODO
-			fallthrough
-		case strings.HasPrefix(l.input[l.pos:], token.CLASS_DICTIONARY.Name()):
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_DICTIONARY.Name()):
 			// TODO
 			fallthrough
 		default:
@@ -257,72 +261,62 @@ func lexClassAttributes(l *Lexer) stateFn {
 	l.ignore()
 
 	switch {
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_DESCRIPTION.Name()):
+	case strings.HasPrefix(l.input[l.pos:], " "):
+		// per the RFC:
+		// An attribute's value can be split over multiple lines, by having a
+		// space, a tab or a plus ('+') character as the first character of the
+		// continuation lines.  The character "+" for line continuation allows
+		// attribute values to contain blank lines.  More spaces may optionally
+		// be used after the continuation character to increase readability.
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], "\t"):
+		fallthrough
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_CONTINUATION.Name()):
+		// don't use lexAttrName as we expect a : in that, we don't use one in a
+		// continuation circumstance.
+		// the use of the + is fine here, as a space, tab or plus is a single character
+		// any extra get consumed by the acceptRun whitespace piece
+		l.pos += len(token.ATTR_CONTINUATION.Name())
+		l.emit(token.ATTR_CONTINUATION)
+		l.acceptRun(whitespace)
+		l.ignore()
+		return l.continuationPath(l, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_AS_NAME.Name()):
+		return lexAttrName(l, token.ATTR_AS_NAME, lexNICHandleAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_DESCRIPTION.Name()):
 		return lexAttrName(l, token.ATTR_DESCRIPTION, lexFreeformAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_AUTHENTICATION.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_AUTHENTICATION.Name()):
 		return lexAttrName(l, token.ATTR_AUTHENTICATION, lexAuthenticationAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_UPDATED_TO_EMAIL.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_UPDATED_TO_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_UPDATED_TO_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINER_NOTIFY_EMAIL.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MAINTAINER_NOTIFY_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_TECHNICAL_CONTACT.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_TECHNICAL_CONTACT.Name()):
 		return lexAttrName(l, token.ATTR_TECHNICAL_CONTACT, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADMIN_CONTACT.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_ADMIN_CONTACT.Name()):
 		return lexAttrName(l, token.ATTR_ADMIN_CONTACT, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REMARKS.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_REMARKS.Name()):
 		return lexAttrName(l, token.ATTR_REMARKS, lexFreeformAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NOTIFY_EMAIL.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_NOTIFY_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINED_BY.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MAINTAINED_BY.Name()):
 		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_CHANGED_AT_AND_BY.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_CHANGED_AT_AND_BY.Name()):
 		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REGISTRY_SOURCE.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_REGISTRY_SOURCE.Name()):
 		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NIC_HANDLE.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_NIC_HANDLE.Name()):
 		return lexAttrName(l, token.ATTR_NIC_HANDLE, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADDRESS.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_ADDRESS.Name()):
 		return lexAttrName(l, token.ATTR_ADDRESS, lexFreeformAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_PHONE_NUMBER.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_PHONE_NUMBER.Name()):
 		return lexAttrName(l, token.ATTR_PHONE_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_FAX_NUMBER.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_FAX_NUMBER.Name()):
 		return lexAttrName(l, token.ATTR_FAX_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_EMAIL.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	default:
-		return lexObjectClass(l)
-	}
-}
-
-func lexRoleAttributes(l *Lexer) stateFn {
-	l.acceptRun(whitespace)
-	if l.accept(pound) {
-		l.acceptExceptRun(newline)
-		l.acceptRun(newline)
-	}
-	l.accept(newline)
-	l.ignore()
-
-	switch {
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NIC_HANDLE.Name()):
-		return lexAttrName(l, token.ATTR_NIC_HANDLE, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADDRESS.Name()):
-		return lexAttrName(l, token.ATTR_ADDRESS, lexFreeformAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_PHONE_NUMBER.Name()):
-		return lexAttrName(l, token.ATTR_PHONE_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_FAX_NUMBER.Name()):
-		return lexAttrName(l, token.ATTR_FAX_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_EMAIL.Name()):
-		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	// following cases exist for all objects
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NOTIFY_EMAIL.Name()):
-		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_CHANGED_AT_AND_BY.Name()):
-		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REGISTRY_SOURCE.Name()):
-		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexClassAttributes)
-	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINED_BY.Name()):
-		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_EXPORT.Name()):
+		return lexAttrName(l, token.ATTR_EXPORT, lexExportAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -340,6 +334,7 @@ func lexAttrName(l *Lexer, tokenType token.Type, valueStateFn stagedStateFn, ret
 	l.acceptRun(whitespace)
 	// ignore the colon and any whitespace following it
 	l.ignore()
+	l.continuationPath = valueStateFn
 	return valueStateFn(l, returnToStateFn)
 }
 
@@ -454,26 +449,26 @@ func lexRegistrySourceAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 func lexAuthenticationAttrValue(l *Lexer, returnToStateFn stateFn) stateFn {
 	switch {
-	case strings.HasPrefix(l.input[l.pos:], token.DATA_PGP_KEY.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_PGP_KEY.Name()):
 		l.pos += len(token.DATA_PGP_KEY.Name())
 		l.ignore()
 		return lexPGPKeyAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.DATA_CRYPT_PASS.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_CRYPT_PASS.Name()):
 		l.pos += len(token.DATA_CRYPT_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexCryptPassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.DATA_MD5_PASS.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_MD5_PASS.Name()):
 		l.pos += len(token.DATA_MD5_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexMD5PassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.DATA_MAIL_FROM_PASS.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_MAIL_FROM_PASS.Name()):
 		l.pos += len(token.DATA_MAIL_FROM_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexMailFromPassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(l.input[l.pos:], token.DATA_NO_AUTH.Name()):
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_NO_AUTH.Name()):
 		return lexNoAuthAttrValue(l, returnToStateFn)
 	default:
 		l.emit(token.ILLEGAL)
@@ -627,6 +622,126 @@ func lexPhoneOrFaxAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 	if l.pos > l.start {
 		l.emit(token.DATA_TELEPHONE_OR_FAX_NUMBER)
+	}
+
+	return nextStateFn
+}
+
+func lexExportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// if the export policy begins with protocol
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "protocol") {
+		for _, t := range "protocol" {
+			if !l.accept(string(t)) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+		}
+		l.acceptRun(whitespace)
+
+		// protocol name 1
+		// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
+		l.acceptRun(alphaNumeric + hyphen)
+		l.acceptRun(whitespace)
+
+		if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "into") {
+			for _, t := range "into" {
+				if !l.accept(string(t)) {
+					l.emit(token.ILLEGAL)
+					return nil
+				}
+			}
+			l.acceptRun(whitespace)
+
+			// protocol name 2
+			// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
+			l.acceptRun(alphaNumeric + hyphen)
+			l.acceptRun(whitespace)
+		}
+	}
+
+	for _, t := range "to" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+	l.acceptRun(whitespace)
+
+	for _, t := range "AS" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+	l.acceptRun(digits)
+	l.acceptRun(whitespace)
+
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "action") {
+		for _, t := range "action" {
+			if !l.accept(string(t)) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+		}
+
+		for parsingAction := true; parsingAction == true; {
+			// action name
+			l.acceptRun(alphaNumeric + hyphen + period)
+			l.acceptRun(whitespace)
+			// assignment
+			l.accept(equal)
+			l.acceptRun(whitespace)
+			// action value
+			l.acceptRun(alphaNumeric + hyphen + period)
+			// action end
+			l.accept(semicolon)
+			l.acceptRun(whitespace)
+			// check for announce clause instead of another action
+			if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "announce") {
+				parsingAction = false
+			}
+		}
+	}
+
+	for _, t := range "announce" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+	l.acceptRun(whitespace)
+
+	for _, t := range "AS" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+
+	if l.accept(hyphen) {
+		l.acceptRun(alphaNumeric + underscore)
+	} else {
+		l.acceptRun(digits)
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_EXPORT_POLICY)
+	}
+
+	return nextStateFn
+}
+
+func lexAutNumAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	for _, t := range "AS" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+
+	l.acceptRun(digits)
+	if l.pos > l.start {
+		l.emit(token.DATA_ASN)
 	}
 
 	return nextStateFn
