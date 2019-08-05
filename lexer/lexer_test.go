@@ -169,3 +169,74 @@ source:         TEST
 		}
 	}
 }
+
+func TestLexRole(t *testing.T) {
+	input := `role:           DashCare BV
+address:        address
+phone:          +31200000000
+fax-no:         +31200000000
+e-mail:         unread@example.com
+admin-c:        PERSON-TEST
+tech-c:         PERSON-TEST
+nic-hdl:        ROLE-TEST
+notify:         notify@example.com
+mnt-by:         TEST-MNT
+changed:        changed@example.com 20190701 # comment
+source:         TEST
+remarks:        remark
+`
+
+	tests := testExpectations{
+		testExpectation{token.CLASS_ROLE, "role", 1},
+		testExpectation{token.DATA_STRING, "DashCare BV", 1},
+		testExpectation{token.ATTR_ADDRESS, "address", 2},
+		testExpectation{token.DATA_STRING, "address", 2},
+		testExpectation{token.ATTR_PHONE_NUMBER, "phone", 3},
+		testExpectation{token.DATA_TELEPHONE_OR_FAX_NUMBER, "+31200000000", 3},
+		testExpectation{token.ATTR_FAX_NUMBER, "fax-no", 4},
+		testExpectation{token.DATA_TELEPHONE_OR_FAX_NUMBER, "+31200000000", 4},
+		testExpectation{token.ATTR_EMAIL, "e-mail", 5},
+		testExpectation{token.DATA_EMAIL, "unread@example.com", 5},
+		testExpectation{token.ATTR_ADMIN_CONTACT, "admin-c", 6},
+		testExpectation{token.DATA_NIC_HANDLE, "PERSON-TEST", 6},
+		testExpectation{token.ATTR_TECHNICAL_CONTACT, "tech-c", 7},
+		testExpectation{token.DATA_NIC_HANDLE, "PERSON-TEST", 7},
+		testExpectation{token.ATTR_NIC_HANDLE, "nic-hdl", 8},
+		testExpectation{token.DATA_NIC_HANDLE, "ROLE-TEST", 8},
+		testExpectation{token.ATTR_NOTIFY_EMAIL, "notify", 9},
+		testExpectation{token.DATA_EMAIL, "notify@example.com", 9},
+		testExpectation{token.ATTR_MAINTAINED_BY, "mnt-by", 10},
+		testExpectation{token.DATA_NIC_HANDLE, "TEST-MNT", 10},
+		testExpectation{token.ATTR_CHANGED_AT_AND_BY, "changed", 11},
+		testExpectation{token.DATA_EMAIL, "changed@example.com", 11},
+		testExpectation{token.DATA_DATE, "20190701", 11},
+		testExpectation{token.ATTR_REGISTRY_SOURCE, "source", 12},
+		testExpectation{token.DATA_REGISTRY_NAME, "TEST", 12},
+		testExpectation{token.ATTR_REMARKS, "remarks", 13},
+		testExpectation{token.DATA_STRING, "remark", 13},
+		testExpectation{token.EOF, "", 0},
+	}
+
+	l := Lex("maintainer-object", input)
+
+	for _, tt := range tests {
+		tok := l.NextToken()
+		failure := false
+
+		if !assert.Equal(t, tt.typ, tok.Type, "Invalid token type '%s', expected '%s'", tok.Type, tt.typ) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.line, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
+			failure = true
+		}
+
+		if failure {
+			t.FailNow()
+		}
+	}
+}

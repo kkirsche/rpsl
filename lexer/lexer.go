@@ -192,12 +192,11 @@ func lexObjectClass(l *Lexer) stateFn {
 	for {
 		switch {
 		case strings.HasPrefix(l.input[l.pos:], token.CLASS_MAINTAINER.Name()):
-			return lexAttrName(l, token.CLASS_MAINTAINER, lexNICHandleAttrValue, lexMaintainerAttributes)
+			return lexAttrName(l, token.CLASS_MAINTAINER, lexNICHandleAttrValue, lexClassAttributes)
 		case strings.HasPrefix(l.input[l.pos:], token.CLASS_PERSON.Name()):
-			return lexAttrName(l, token.CLASS_PERSON, lexFreeformAttrValue, lexPersonAttributes)
+			return lexAttrName(l, token.CLASS_PERSON, lexFreeformAttrValue, lexClassAttributes)
 		case strings.HasPrefix(l.input[l.pos:], token.CLASS_ROLE.Name()):
-			// TODO
-			fallthrough
+			return lexAttrName(l, token.CLASS_ROLE, lexFreeformAttrValue, lexClassAttributes)
 		case strings.HasPrefix(l.input[l.pos:], token.CLASS_AUT_NUM.Name()):
 			// TODO
 			fallthrough
@@ -248,7 +247,7 @@ func lexObjectClass(l *Lexer) stateFn {
 	// return nil
 }
 
-func lexMaintainerAttributes(l *Lexer) stateFn {
+func lexClassAttributes(l *Lexer) stateFn {
 	l.acceptRun(whitespace)
 	if l.accept(pound) {
 		l.acceptExceptRun(newline)
@@ -259,33 +258,43 @@ func lexMaintainerAttributes(l *Lexer) stateFn {
 
 	switch {
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_DESCRIPTION.Name()):
-		return lexAttrName(l, token.ATTR_DESCRIPTION, lexFreeformAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_DESCRIPTION, lexFreeformAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_AUTHENTICATION.Name()):
-		return lexAttrName(l, token.ATTR_AUTHENTICATION, lexAuthenticationAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_AUTHENTICATION, lexAuthenticationAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_UPDATED_TO_EMAIL.Name()):
-		return lexAttrName(l, token.ATTR_UPDATED_TO_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_UPDATED_TO_EMAIL, lexEmailAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINER_NOTIFY_EMAIL.Name()):
-		return lexAttrName(l, token.ATTR_MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_TECHNICAL_CONTACT.Name()):
-		return lexAttrName(l, token.ATTR_TECHNICAL_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_TECHNICAL_CONTACT, lexNICHandleAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADMIN_CONTACT.Name()):
-		return lexAttrName(l, token.ATTR_ADMIN_CONTACT, lexNICHandleAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_ADMIN_CONTACT, lexNICHandleAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REMARKS.Name()):
-		return lexAttrName(l, token.ATTR_REMARKS, lexFreeformAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_REMARKS, lexFreeformAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NOTIFY_EMAIL.Name()):
-		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINED_BY.Name()):
-		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_CHANGED_AT_AND_BY.Name()):
-		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REGISTRY_SOURCE.Name()):
-		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexMaintainerAttributes)
+		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexClassAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NIC_HANDLE.Name()):
+		return lexAttrName(l, token.ATTR_NIC_HANDLE, lexNICHandleAttrValue, lexClassAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADDRESS.Name()):
+		return lexAttrName(l, token.ATTR_ADDRESS, lexFreeformAttrValue, lexClassAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_PHONE_NUMBER.Name()):
+		return lexAttrName(l, token.ATTR_PHONE_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_FAX_NUMBER.Name()):
+		return lexAttrName(l, token.ATTR_FAX_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
+	case strings.HasPrefix(l.input[l.pos:], token.ATTR_EMAIL.Name()):
+		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
 }
 
-func lexPersonAttributes(l *Lexer) stateFn {
+func lexRoleAttributes(l *Lexer) stateFn {
 	l.acceptRun(whitespace)
 	if l.accept(pound) {
 		l.acceptExceptRun(newline)
@@ -296,23 +305,24 @@ func lexPersonAttributes(l *Lexer) stateFn {
 
 	switch {
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NIC_HANDLE.Name()):
-		return lexAttrName(l, token.ATTR_NIC_HANDLE, lexNICHandleAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_NIC_HANDLE, lexNICHandleAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_ADDRESS.Name()):
-		return lexAttrName(l, token.ATTR_ADDRESS, lexFreeformAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_ADDRESS, lexFreeformAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_PHONE_NUMBER.Name()):
-		return lexAttrName(l, token.ATTR_PHONE_NUMBER, lexPhoneOrFaxAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_PHONE_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_FAX_NUMBER.Name()):
-		return lexAttrName(l, token.ATTR_FAX_NUMBER, lexPhoneOrFaxAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_FAX_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_EMAIL.Name()):
-		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexClassAttributes)
+	// following cases exist for all objects
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_NOTIFY_EMAIL.Name()):
-		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_CHANGED_AT_AND_BY.Name()):
-		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_REGISTRY_SOURCE.Name()):
-		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexClassAttributes)
 	case strings.HasPrefix(l.input[l.pos:], token.ATTR_MAINTAINED_BY.Name()):
-		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexPersonAttributes)
+		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
