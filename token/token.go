@@ -40,6 +40,7 @@ const (
 	DATA_STRING
 	DATA_TELEPHONE_OR_FAX_NUMBER
 	DATA_EXPORT_POLICY
+	DATA_IMPORT_POLICY
 
 	// Object Classes
 	CLASS_AS_SET
@@ -58,15 +59,16 @@ const (
 
 	// Object Attributes
 	ATTR_ADDRESS
-	ATTR_EXPORT
-	ATTR_AS_NAME
 	ATTR_ADMIN_CONTACT
+	ATTR_AS_NAME
 	ATTR_AUTHENTICATION
 	ATTR_CHANGED_AT_AND_BY
 	ATTR_CONTINUATION // +: indicates repeat of the last attribute type / name
 	ATTR_DESCRIPTION
 	ATTR_EMAIL
+	ATTR_EXPORT
 	ATTR_FAX_NUMBER
+	ATTR_IMPORT
 	ATTR_MAINTAINED_BY
 	ATTR_MAINTAINER_NOTIFY_EMAIL
 	ATTR_NIC_HANDLE
@@ -96,6 +98,7 @@ var names = map[Type]string{
 	DATA_STRING:                  "DATA_STRING",
 	DATA_TELEPHONE_OR_FAX_NUMBER: "DATA_TELEPHONE_OR_FAX_NUMBER",
 	DATA_EXPORT_POLICY:           "DATA_EXPORT_POLICY",
+	DATA_IMPORT_POLICY:           "DATA_IMPORT_POLICY",
 	// Object Classes
 	CLASS_AS_SET:      "CLASS_AS_SET",
 	CLASS_AUT_NUM:     "CLASS_AUT_NUM",
@@ -112,15 +115,16 @@ var names = map[Type]string{
 	CLASS_ROUTE_SET:   "CLASS_ROUTE_SET",
 	// Object Attributes
 	ATTR_ADDRESS:                 "ATTR_ADDRESS",
-	ATTR_AS_NAME:                 "ATTR_AS_NAME",
-	ATTR_EXPORT:                  "ATTR_EXPORT",
 	ATTR_ADMIN_CONTACT:           "ATTR_ADMIN_CONTACT",
+	ATTR_AS_NAME:                 "ATTR_AS_NAME",
 	ATTR_AUTHENTICATION:          "ATTR_AUTHENTICATION",
 	ATTR_CHANGED_AT_AND_BY:       "ATTR_CHANGED_AT_AND_BY",
 	ATTR_CONTINUATION:            "ATTR_CONTINUATION",
 	ATTR_DESCRIPTION:             "ATTR_DESCRIPTION",
 	ATTR_EMAIL:                   "ATTR_EMAIL",
+	ATTR_EXPORT:                  "ATTR_EXPORT",
 	ATTR_FAX_NUMBER:              "ATTR_FAX_NUMBER",
+	ATTR_IMPORT:                  "ATTR_IMPORT",
 	ATTR_MAINTAINED_BY:           "ATTR_MAINTAINED_BY",
 	ATTR_MAINTAINER_NOTIFY_EMAIL: "ATTR_MAINTAINER_NOTIFY_EMAIL",
 	ATTR_NIC_HANDLE:              "ATTR_NIC_HANDLE",
@@ -149,15 +153,16 @@ var objectStrings = map[Type]string{
 	CLASS_ROUTE_SET:   "route-set",
 	// Object Attributes
 	ATTR_ADDRESS:                 "address",
-	ATTR_AS_NAME:                 "as-name",
-	ATTR_EXPORT:                  "export",
 	ATTR_ADMIN_CONTACT:           "admin-c",
+	ATTR_AS_NAME:                 "as-name",
 	ATTR_AUTHENTICATION:          "auth",
 	ATTR_CHANGED_AT_AND_BY:       "changed",
 	ATTR_CONTINUATION:            "+",
 	ATTR_DESCRIPTION:             "descr",
 	ATTR_EMAIL:                   "e-mail",
+	ATTR_EXPORT:                  "export",
 	ATTR_FAX_NUMBER:              "fax-no",
+	ATTR_IMPORT:                  "import",
 	ATTR_MAINTAINED_BY:           "mnt-by",
 	ATTR_MAINTAINER_NOTIFY_EMAIL: "mnt-nfy",
 	ATTR_NIC_HANDLE:              "nic-hdl",
