@@ -317,6 +317,8 @@ func lexClassAttributes(l *Lexer) stateFn {
 		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexClassAttributes)
 	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_EXPORT.Name()):
 		return lexAttrName(l, token.ATTR_EXPORT, lexExportAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_IMPORT.Name()):
+		return lexAttrName(l, token.ATTR_IMPORT, lexImportAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -742,6 +744,123 @@ func lexAutNumAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	l.acceptRun(digits)
 	if l.pos > l.start {
 		l.emit(token.DATA_ASN)
+	}
+
+	return nextStateFn
+}
+
+func lexImportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// if the export policy begins with protocol
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "protocol") {
+		for _, t := range "protocol" {
+			if !l.accept(string(t)) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+		}
+		l.acceptRun(whitespace)
+
+		// protocol name 1
+		// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
+		l.acceptRun(alphaNumeric + hyphen)
+		l.acceptRun(whitespace)
+
+		if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "into") {
+			for _, t := range "into" {
+				if !l.accept(string(t)) {
+					l.emit(token.ILLEGAL)
+					return nil
+				}
+			}
+			l.acceptRun(whitespace)
+
+			// protocol name 2
+			// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
+			l.acceptRun(alphaNumeric + hyphen)
+			l.acceptRun(whitespace)
+		}
+	}
+
+	for _, t := range "from" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+	l.acceptRun(whitespace)
+
+	for _, t := range "AS" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+	if l.accept(hyphen) {
+		l.acceptRun(alphaNumeric)
+	} else {
+		l.acceptRun(digits)
+	}
+	l.acceptRun(whitespace)
+
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "action") {
+		for _, t := range "action" {
+			if !l.accept(string(t)) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+		}
+
+		for parsingAction := true; parsingAction == true; {
+			// action name
+			l.acceptRun(alphaNumeric + hyphen + period)
+			l.acceptRun(whitespace)
+			// assignment
+			l.accept(equal)
+			l.acceptRun(whitespace)
+			// action value
+			l.acceptRun(alphaNumeric + hyphen + period)
+			// action end
+			l.accept(semicolon)
+			l.acceptRun(whitespace)
+			// check for announce clause instead of another action
+			if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "accept") {
+				parsingAction = false
+			}
+		}
+	}
+
+	for _, t := range "accept" {
+		if !l.accept(string(t)) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+	}
+	l.acceptRun(whitespace)
+
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "any") {
+		for _, t := range "ANY" {
+			if !l.accept(string(t)) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+		}
+	} else {
+		for _, t := range "AS" {
+			if !l.accept(string(t)) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+		}
+
+		if l.accept(hyphen) {
+			l.acceptRun(alphaNumeric + underscore)
+		} else {
+			l.acceptRun(digits)
+		}
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_IMPORT_POLICY)
 	}
 
 	return nextStateFn

@@ -299,6 +299,12 @@ remarks:        remark
 		testExpectation{token.DATA_STRING, "---> Uplinks", 5},
 		testExpectation{token.ATTR_EXPORT, "export", 6},
 		testExpectation{token.DATA_EXPORT_POLICY, "to AS3356 announce AS-SETTEST", 6},
+		testExpectation{token.ATTR_IMPORT, "import", 7},
+		testExpectation{token.DATA_IMPORT_POLICY, "from AS3356 accept ANY", 7},
+		testExpectation{token.ATTR_EXPORT, "export", 8},
+		testExpectation{token.DATA_EXPORT_POLICY, "to AS174 announce AS-SETTEST", 8},
+		testExpectation{token.ATTR_IMPORT, "import", 9},
+		testExpectation{token.DATA_IMPORT_POLICY, "from AS174 accept ANY", 9},
 		testExpectation{token.EOF, "", 0},
 	}
 
