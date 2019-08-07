@@ -205,8 +205,7 @@ func lexObjectClass(l *Lexer) stateFn {
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AUT_NUM.Name()):
 			return lexAttrName(l, token.CLASS_AUT_NUM, lexAutNumAttrValue, lexClassAttributes)
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AS_SET.Name()):
-			// TODO
-			fallthrough
+			return lexAttrName(l, token.CLASS_AS_SET, lexNICHandleAttrValue, lexClassAttributes)
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE.Name()):
 			// TODO
 			fallthrough
@@ -323,6 +322,8 @@ func lexClassAttributes(l *Lexer) stateFn {
 		return lexAttrName(l, token.ATTR_MULTI_PROTO_EXPORT_POLICY, lexMultiProtoExportAttrValue, lexClassAttributes)
 	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MULTI_PROTO_IMPORT_POLICY.Name()):
 		return lexAttrName(l, token.ATTR_MULTI_PROTO_IMPORT_POLICY, lexMultiProtoImportAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_AS_SET_MEMBERS.Name()):
+		return lexAttrName(l, token.ATTR_AS_SET_MEMBERS, lexMultipleAutNumAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -677,6 +678,31 @@ func lexAutNumAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 	l.acceptRun(digits)
 	if l.pos > l.start {
 		l.emit(token.DATA_ASN)
+	}
+
+	return nextStateFn
+}
+
+func lexMultipleAutNumAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	for tokenizingASN := true; tokenizingASN == true; {
+		for _, t := range "AS" {
+			if !l.accept(string(t)) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+		}
+
+		l.acceptRun(digits)
+		if l.pos > l.start {
+			l.emit(token.DATA_ASN)
+		}
+
+		l.acceptRun(whitespace)
+		if !l.accept(comma) {
+			tokenizingASN = false
+		}
+		l.acceptRun(whitespace)
+		l.ignore()
 	}
 
 	return nextStateFn

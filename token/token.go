@@ -63,6 +63,7 @@ const (
 	ATTR_ADDRESS
 	ATTR_ADMIN_CONTACT
 	ATTR_AS_NAME
+	ATTR_AS_SET_MEMBERS
 	ATTR_AUTHENTICATION
 	ATTR_CHANGED_AT_AND_BY
 	ATTR_CONTINUATION // +: indicates repeat of the last attribute type / name
@@ -123,6 +124,7 @@ var names = map[Type]string{
 	ATTR_ADDRESS:                   "ATTR_ADDRESS",
 	ATTR_ADMIN_CONTACT:             "ATTR_ADMIN_CONTACT",
 	ATTR_AS_NAME:                   "ATTR_AS_NAME",
+	ATTR_AS_SET_MEMBERS:            "ATTR_AS_SET_MEMBERS",
 	ATTR_AUTHENTICATION:            "ATTR_AUTHENTICATION",
 	ATTR_CHANGED_AT_AND_BY:         "ATTR_CHANGED_AT_AND_BY",
 	ATTR_CONTINUATION:              "ATTR_CONTINUATION",
@@ -163,6 +165,7 @@ var objectStrings = map[Type]string{
 	ATTR_ADDRESS:                   "address",
 	ATTR_ADMIN_CONTACT:             "admin-c",
 	ATTR_AS_NAME:                   "as-name",
+	ATTR_AS_SET_MEMBERS:            "members",
 	ATTR_AUTHENTICATION:            "auth",
 	ATTR_CHANGED_AT_AND_BY:         "changed",
 	ATTR_CONTINUATION:              "+",

@@ -398,3 +398,69 @@ remarks:        remark
 		}
 	}
 }
+
+func TestLexAutonomousSystemSet(t *testing.T) {
+	input := `as-set:         AS-SETTEST
+descr:          description
+members:        AS65538, AS65539
+members:        AS65537
+tech-c:         PERSON-TEST
+admin-c:        PERSON-TEST
+notify:         notify@example.com
+mnt-by:         TEST-MNT
+changed:        changed@example.com 20190701 # comment
+source:         TEST
+remarks:        remark
+`
+
+	tests := testExpectations{
+		testExpectation{token.CLASS_AS_SET, "as-set", 1},
+		testExpectation{token.DATA_NIC_HANDLE, "AS-SETTEST", 1},
+		testExpectation{token.ATTR_DESCRIPTION, "descr", 2},
+		testExpectation{token.DATA_STRING, "description", 2},
+		testExpectation{token.ATTR_AS_SET_MEMBERS, "members", 3},
+		testExpectation{token.DATA_ASN, "AS65538", 3},
+		testExpectation{token.DATA_ASN, "AS65539", 3},
+		testExpectation{token.ATTR_AS_SET_MEMBERS, "members", 4},
+		testExpectation{token.DATA_ASN, "AS65537", 4},
+		testExpectation{token.ATTR_TECHNICAL_CONTACT, "tech-c", 5},
+		testExpectation{token.DATA_NIC_HANDLE, "PERSON-TEST", 5},
+		testExpectation{token.ATTR_ADMIN_CONTACT, "admin-c", 6},
+		testExpectation{token.DATA_NIC_HANDLE, "PERSON-TEST", 6},
+		testExpectation{token.ATTR_NOTIFY_EMAIL, "notify", 7},
+		testExpectation{token.DATA_EMAIL, "notify@example.com", 7},
+		testExpectation{token.ATTR_MAINTAINED_BY, "mnt-by", 8},
+		testExpectation{token.DATA_NIC_HANDLE, "TEST-MNT", 8},
+		testExpectation{token.ATTR_CHANGED_AT_AND_BY, "changed", 9},
+		testExpectation{token.DATA_EMAIL, "changed@example.com", 9},
+		testExpectation{token.DATA_DATE, "20190701", 9},
+		testExpectation{token.ATTR_REGISTRY_SOURCE, "source", 10},
+		testExpectation{token.DATA_REGISTRY_NAME, "TEST", 10},
+		testExpectation{token.ATTR_REMARKS, "remarks", 11},
+		testExpectation{token.DATA_STRING, "remark", 11},
+		testExpectation{token.EOF, "", 0},
+	}
+
+	l := Lex("maintainer-object", input)
+
+	for _, tt := range tests {
+		tok := l.NextToken()
+		failure := false
+
+		if !assert.Equal(t, tt.typ, tok.Type, "Invalid token type '%s', expected '%s'", tok.Type, tt.typ) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.line, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
+			failure = true
+		}
+
+		if failure {
+			t.FailNow()
+		}
+	}
+}
