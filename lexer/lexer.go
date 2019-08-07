@@ -319,6 +319,10 @@ func lexClassAttributes(l *Lexer) stateFn {
 		return lexAttrName(l, token.ATTR_EXPORT, lexExportAttrValue, lexClassAttributes)
 	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_IMPORT.Name()):
 		return lexAttrName(l, token.ATTR_IMPORT, lexImportAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MULTI_PROTO_EXPORT_POLICY.Name()):
+		return lexAttrName(l, token.ATTR_MULTI_PROTO_EXPORT_POLICY, lexMultiProtoExportAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MULTI_PROTO_IMPORT_POLICY.Name()):
+		return lexAttrName(l, token.ATTR_MULTI_PROTO_IMPORT_POLICY, lexMultiProtoImportAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -630,100 +634,29 @@ func lexPhoneOrFaxAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 }
 
 func lexExportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
-	// if the export policy begins with protocol
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "protocol") {
-		for _, t := range "protocol" {
-			if !l.accept(string(t)) {
-				l.emit(token.ILLEGAL)
-				return nil
-			}
-		}
-		l.acceptRun(whitespace)
-
-		// protocol name 1
-		// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
-		l.acceptRun(alphaNumeric + hyphen)
-		l.acceptRun(whitespace)
-
-		if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "into") {
-			for _, t := range "into" {
-				if !l.accept(string(t)) {
-					l.emit(token.ILLEGAL)
-					return nil
-				}
-			}
-			l.acceptRun(whitespace)
-
-			// protocol name 2
-			// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
-			l.acceptRun(alphaNumeric + hyphen)
-			l.acceptRun(whitespace)
-		}
+	// lex [protocol <protocol-1>] [into <protocol-2>]
+	succeeded := partialLexProtocol(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
 	}
 
-	for _, t := range "to" {
-		if !l.accept(string(t)) {
-			l.emit(token.ILLEGAL)
-			return nil
-		}
-	}
-	l.acceptRun(whitespace)
-
-	for _, t := range "AS" {
-		if !l.accept(string(t)) {
-			l.emit(token.ILLEGAL)
-			return nil
-		}
-	}
-	l.acceptRun(digits)
-	l.acceptRun(whitespace)
-
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "action") {
-		for _, t := range "action" {
-			if !l.accept(string(t)) {
-				l.emit(token.ILLEGAL)
-				return nil
-			}
-		}
-
-		for parsingAction := true; parsingAction == true; {
-			// action name
-			l.acceptRun(alphaNumeric + hyphen + period)
-			l.acceptRun(whitespace)
-			// assignment
-			l.accept(equal)
-			l.acceptRun(whitespace)
-			// action value
-			l.acceptRun(alphaNumeric + hyphen + period)
-			// action end
-			l.accept(semicolon)
-			l.acceptRun(whitespace)
-			// check for announce clause instead of another action
-			if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "announce") {
-				parsingAction = false
-			}
-		}
+	succeeded = partialLexToPeer(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
 	}
 
-	for _, t := range "announce" {
-		if !l.accept(string(t)) {
-			l.emit(token.ILLEGAL)
-			return nil
-		}
-	}
-	l.acceptRun(whitespace)
-
-	for _, t := range "AS" {
-		if !l.accept(string(t)) {
-			l.emit(token.ILLEGAL)
-			return nil
-		}
+	succeeded = partialLexAction(l, "announce")
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
 	}
 
-	if l.accept(hyphen) {
-		l.acceptRun(alphaNumeric + underscore)
-	} else {
-		l.acceptRun(digits)
+	succeeded = partialLexAnnouncement(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
 	}
 
 	if l.pos > l.start {
@@ -750,12 +683,120 @@ func lexAutNumAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 }
 
 func lexImportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// lex [protocol <protocol-1>] [into <protocol-2>]
+	succeeded := partialLexProtocol(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexFromPeer(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAction(l, "accept")
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAcceptAS(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_IMPORT_POLICY)
+	}
+
+	return nextStateFn
+}
+
+func lexMultiProtoExportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	succeeded := partialLexProtocol(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAddressFamilyIdentifier(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexToPeer(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAction(l, "announce")
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAnnouncement(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_MULTI_PROTO_EXPORT_POLICY)
+	}
+
+	return nextStateFn
+}
+
+func lexMultiProtoImportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	succeeded := partialLexProtocol(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAddressFamilyIdentifier(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexFromPeer(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAction(l, "accept")
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	succeeded = partialLexAcceptAS(l)
+	if !succeeded {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_MULTI_PROTO_IMPORT_POLICY)
+	}
+
+	return nextStateFn
+}
+
+func partialLexProtocol(l *Lexer) bool {
 	// if the export policy begins with protocol
 	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "protocol") {
 		for _, t := range "protocol" {
 			if !l.accept(string(t)) {
-				l.emit(token.ILLEGAL)
-				return nil
+				return false
 			}
 		}
 		l.acceptRun(whitespace)
@@ -764,91 +805,173 @@ func lexImportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
 		l.acceptRun(alphaNumeric + hyphen)
 		l.acceptRun(whitespace)
-
-		if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "into") {
-			for _, t := range "into" {
-				if !l.accept(string(t)) {
-					l.emit(token.ILLEGAL)
-					return nil
-				}
-			}
-			l.acceptRun(whitespace)
-
-			// protocol name 2
-			// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
-			l.acceptRun(alphaNumeric + hyphen)
-			l.acceptRun(whitespace)
-		}
 	}
 
-	for _, t := range "from" {
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "into") {
+		for _, t := range "into" {
+			if !l.accept(string(t)) {
+				return false
+			}
+		}
+		l.acceptRun(whitespace)
+
+		// protocol name 2
+		// e.g. BGP, BGP4, OSPF, STATIC, RIP, IS-IS, etc.
+		l.acceptRun(alphaNumeric + hyphen)
+		l.acceptRun(whitespace)
+	}
+
+	l.acceptRun(whitespace)
+	return true
+}
+
+func partialLexAddressFamilyIdentifier(l *Lexer) bool {
+	// if the export policy begins with protocol
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "afi") {
+		for _, t := range "afi" {
+			if !l.accept(string(t)) {
+				return false
+			}
+		}
+		l.acceptRun(whitespace)
+
+		// afi value - any.unicast, ipv6.unicast, etc.
+		for tokenizingAFI := true; tokenizingAFI == true; {
+			afiType := ""
+			// AFI type list
+			// https://tools.ietf.org/html/rfc4012#section-2.2
+			switch {
+			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv4.unicast"):
+				afiType = "ipv4.unicast"
+			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv4.multicast"):
+				afiType = "ipv4.multicast"
+			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv4"):
+				afiType = "ipv4"
+			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv6.unicast"):
+				afiType = "ipv6.unicast"
+			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv6.multicast"):
+				afiType = "ipv6.multicast"
+			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv6"):
+				afiType = "ipv6"
+			default:
+				// illegal AFI
+				return false
+			}
+
+			for _, t := range afiType {
+				if !l.accept(string(t)) {
+					return false
+				}
+			}
+
+			l.acceptRun(whitespace)
+			if !l.accept(comma) {
+				tokenizingAFI = false
+			}
+		}
+	}
+	l.acceptRun(whitespace)
+	return true
+}
+
+func partialLexToPeer(l *Lexer) bool {
+	// to peer / mp-peer is a required attribute
+	for _, t := range "to" {
 		if !l.accept(string(t)) {
-			l.emit(token.ILLEGAL)
-			return nil
+			return false
 		}
 	}
 	l.acceptRun(whitespace)
 
 	for _, t := range "AS" {
 		if !l.accept(string(t)) {
-			l.emit(token.ILLEGAL)
-			return nil
+			return false
 		}
 	}
-	if l.accept(hyphen) {
-		l.acceptRun(alphaNumeric)
-	} else {
-		l.acceptRun(digits)
+	l.acceptRun(digits)
+	l.acceptRun(whitespace)
+	return true
+}
+
+func partialLexFromPeer(l *Lexer) bool {
+	// from peer / mp-peer is a required attribute
+	for _, t := range "from" {
+		if !l.accept(string(t)) {
+			return false
+		}
 	}
 	l.acceptRun(whitespace)
 
+	for _, t := range "AS" {
+		if !l.accept(string(t)) {
+			return false
+		}
+	}
+	if l.accept(hyphen) {
+		if !l.acceptRun(alphaNumeric) {
+			return false
+		}
+	} else {
+		if !l.acceptRun(digits) {
+			return false
+		}
+	}
+
+	l.acceptRun(whitespace)
+	return true
+}
+
+func partialLexAction(l *Lexer, nextClause string) bool {
 	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "action") {
 		for _, t := range "action" {
 			if !l.accept(string(t)) {
-				l.emit(token.ILLEGAL)
-				return nil
+				return false
 			}
 		}
 
 		for parsingAction := true; parsingAction == true; {
 			// action name
-			l.acceptRun(alphaNumeric + hyphen + period)
+			if !l.acceptRun(alphaNumeric + hyphen + period) {
+				return false
+			}
 			l.acceptRun(whitespace)
 			// assignment
-			l.accept(equal)
+			if !l.accept(equal) {
+				return false
+			}
 			l.acceptRun(whitespace)
 			// action value
-			l.acceptRun(alphaNumeric + hyphen + period)
+			if !l.acceptRun(alphaNumeric + hyphen + period) {
+				return false
+			}
 			// action end
-			l.accept(semicolon)
+			if !l.accept(semicolon) {
+				return false
+			}
 			l.acceptRun(whitespace)
 			// check for announce clause instead of another action
-			if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "accept") {
+			if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), nextClause) {
 				parsingAction = false
 			}
 		}
 	}
 
-	for _, t := range "accept" {
+	l.acceptRun(whitespace)
+	return true
+}
+
+func partialLexAnnouncement(l *Lexer) bool {
+	for _, t := range "announce" {
 		if !l.accept(string(t)) {
-			l.emit(token.ILLEGAL)
-			return nil
+			return false
 		}
 	}
 	l.acceptRun(whitespace)
 
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "any") {
-		for _, t := range "ANY" {
-			if !l.accept(string(t)) {
-				l.emit(token.ILLEGAL)
-				return nil
-			}
-		}
-	} else {
+	for parsingAS := true; parsingAS == true; {
 		for _, t := range "AS" {
 			if !l.accept(string(t)) {
-				l.emit(token.ILLEGAL)
-				return nil
+				return false
 			}
 		}
 
@@ -857,11 +980,54 @@ func lexImportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 		} else {
 			l.acceptRun(digits)
 		}
+
+		l.acceptRun(whitespace)
+		// check for another AS instead of the end of the line
+		if !strings.HasPrefix(strings.ToUpper(l.input[l.pos:]), "AS") {
+			parsingAS = false
+		}
 	}
 
-	if l.pos > l.start {
-		l.emit(token.DATA_IMPORT_POLICY)
+	l.acceptRun(whitespace)
+	return true
+}
+
+func partialLexAcceptAS(l *Lexer) bool {
+	for _, t := range "accept" {
+		if !l.accept(string(t)) {
+			return false
+		}
+	}
+	l.acceptRun(whitespace)
+
+	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "any") {
+		for _, t := range "ANY" {
+			if !l.accept(string(t)) {
+				return false
+			}
+		}
+	} else {
+		for parsingAS := true; parsingAS == true; {
+			for _, t := range "AS" {
+				if !l.accept(string(t)) {
+					return false
+				}
+			}
+
+			if l.accept(hyphen) {
+				l.acceptRun(alphaNumeric + underscore + hyphen)
+			} else {
+				l.acceptRun(digits)
+			}
+
+			l.acceptRun(whitespace)
+			// check for another AS instead of the end of the line
+			if !strings.HasPrefix(strings.ToUpper(l.input[l.pos:]), "AS") {
+				parsingAS = false
+			}
+		}
 	}
 
-	return nextStateFn
+	l.acceptRun(whitespace)
+	return true
 }
