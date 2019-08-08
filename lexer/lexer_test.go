@@ -464,3 +464,65 @@ remarks:        remark
 		}
 	}
 }
+
+func TestLexRoute(t *testing.T) {
+	input := `route:          192.0.02.0/24
+descr:          example route
+descr:          the route attribute should have the extra zero removed,
++               but this value should not: 192.0.02.0/24
+origin:         AS65537
+member-of:      RS-TEST
+mnt-by:         TEST-MNT
+changed:        changed@example.com 20190701 # comment
+source:         TEST
+remarks:        remark
+`
+
+	tests := testExpectations{
+		testExpectation{token.CLASS_ROUTE, "route", 1},
+		testExpectation{token.DATA_IPv4_CIDR, "192.0.02.0/24", 1},
+		testExpectation{token.ATTR_DESCRIPTION, "descr", 2},
+		testExpectation{token.DATA_STRING, "example route", 2},
+		testExpectation{token.ATTR_DESCRIPTION, "descr", 3},
+		testExpectation{token.DATA_STRING, "the route attribute should have the extra zero removed,", 3},
+		testExpectation{token.ATTR_CONTINUATION, "+", 4},
+		testExpectation{token.DATA_STRING, "but this value should not: 192.0.02.0/24", 4},
+		testExpectation{token.ATTR_ORIGIN, "origin", 5},
+		testExpectation{token.DATA_ASN, "AS65537", 5},
+		testExpectation{token.ATTR_MEMBER_OF_ROUTE_SET, "member-of", 6},
+		testExpectation{token.DATA_NIC_HANDLE, "RS-TEST", 6},
+		testExpectation{token.ATTR_MAINTAINED_BY, "mnt-by", 7},
+		testExpectation{token.DATA_NIC_HANDLE, "TEST-MNT", 7},
+		testExpectation{token.ATTR_CHANGED_AT_AND_BY, "changed", 8},
+		testExpectation{token.DATA_EMAIL, "changed@example.com", 8},
+		testExpectation{token.DATA_DATE, "20190701", 8},
+		testExpectation{token.ATTR_REGISTRY_SOURCE, "source", 9},
+		testExpectation{token.DATA_REGISTRY_NAME, "TEST", 9},
+		testExpectation{token.ATTR_REMARKS, "remarks", 10},
+		testExpectation{token.DATA_STRING, "remark", 10},
+		testExpectation{token.EOF, "", 0},
+	}
+
+	l := Lex("maintainer-object", input)
+
+	for _, tt := range tests {
+		tok := l.NextToken()
+		failure := false
+
+		if !assert.Equal(t, tt.typ, tok.Type, "Invalid token type '%s', expected '%s'", tok.Type, tt.typ) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.line, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
+			failure = true
+		}
+
+		if failure {
+			t.FailNow()
+		}
+	}
+}

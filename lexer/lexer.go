@@ -206,12 +206,11 @@ func lexObjectClass(l *Lexer) stateFn {
 			return lexAttrName(l, token.CLASS_AUT_NUM, lexAutNumAttrValue, lexClassAttributes)
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AS_SET.Name()):
 			return lexAttrName(l, token.CLASS_AS_SET, lexNICHandleAttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE.Name()):
-			// TODO
-			fallthrough
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE6.Name()):
 			// TODO
 			fallthrough
+		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE.Name()):
+			return lexAttrName(l, token.CLASS_ROUTE, lexCIDRv4AttrValue, lexClassAttributes)
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE_SET.Name()):
 			// TODO
 			fallthrough
@@ -322,8 +321,12 @@ func lexClassAttributes(l *Lexer) stateFn {
 		return lexAttrName(l, token.ATTR_MULTI_PROTO_EXPORT_POLICY, lexMultiProtoExportAttrValue, lexClassAttributes)
 	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MULTI_PROTO_IMPORT_POLICY.Name()):
 		return lexAttrName(l, token.ATTR_MULTI_PROTO_IMPORT_POLICY, lexMultiProtoImportAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MEMBER_OF_ROUTE_SET.Name()):
+		return lexAttrName(l, token.ATTR_MEMBER_OF_ROUTE_SET, lexNICHandleAttrValue, lexClassAttributes)
 	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_AS_SET_MEMBERS.Name()):
 		return lexAttrName(l, token.ATTR_AS_SET_MEMBERS, lexMultipleAutNumAttrValue, lexClassAttributes)
+	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_ORIGIN.Name()):
+		return lexAttrName(l, token.ATTR_ORIGIN, lexAutNumAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -1056,4 +1059,60 @@ func partialLexAcceptAS(l *Lexer) bool {
 
 	l.acceptRun(whitespace)
 	return true
+}
+
+func lexCIDRv4AttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	// first octet - up to three digits
+	// we are not validating the IP, just tokenizing what we think
+	// might be an IP. It's the parser's responsibility to validate
+	// the IP is a valid CIDR
+	for i := 0; i < 3; i++ {
+		l.accept(digits)
+	}
+
+	if !l.accept(period) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	// second octet
+	for i := 0; i < 3; i++ {
+		l.accept(digits)
+	}
+
+	if !l.accept(period) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	// third octet
+	for i := 0; i < 3; i++ {
+		l.accept(digits)
+	}
+
+	if !l.accept(period) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	// fourth octet
+	for i := 0; i < 3; i++ {
+		l.accept(digits)
+	}
+
+	if !l.accept(forwardSlash) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	// subnet size
+	for i := 0; i < 2; i++ {
+		l.accept(digits)
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_IPv4_CIDR)
+	}
+
+	return nextStateFn
 }
