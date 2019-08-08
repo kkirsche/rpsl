@@ -579,3 +579,65 @@ remarks:        remark
 		}
 	}
 }
+
+func TestLexRouteSet(t *testing.T) {
+	input := `route-set:      RS-TEST
+descr:          TEST route set
+mbrs-by-ref:    TEST-MNT
+tech-c:         PERSON-TEST
+admin-c:        PERSON-TEST
+mnt-by:         TEST-MNT
+mp-members:     2001:0dB8::/48
+changed:        changed@example.com 20190701 # comment
+source:         TEST
+remarks:        remark
+`
+
+	tests := testExpectations{
+		testExpectation{token.CLASS_ROUTE_SET, "route-set", 1},
+		testExpectation{token.DATA_NIC_HANDLE, "RS-TEST", 1},
+		testExpectation{token.ATTR_DESCRIPTION, "descr", 2},
+		testExpectation{token.DATA_STRING, "TEST route set", 2},
+		testExpectation{token.ATTR_MEMBERS_BY_REFERENCE, "mbrs-by-ref", 3},
+		testExpectation{token.DATA_NIC_HANDLE, "TEST-MNT", 3},
+		testExpectation{token.ATTR_TECHNICAL_CONTACT, "tech-c", 4},
+		testExpectation{token.DATA_NIC_HANDLE, "PERSON-TEST", 4},
+		testExpectation{token.ATTR_ADMIN_CONTACT, "admin-c", 5},
+		testExpectation{token.DATA_NIC_HANDLE, "PERSON-TEST", 5},
+		testExpectation{token.ATTR_MAINTAINED_BY, "mnt-by", 6},
+		testExpectation{token.DATA_NIC_HANDLE, "TEST-MNT", 6},
+		testExpectation{token.ATTR_MULTI_PROTO_MEMBERS, "mp-members", 7},
+		testExpectation{token.DATA_IPv6_CIDR, "2001:0dB8::/48", 7},
+		testExpectation{token.ATTR_CHANGED_AT_AND_BY, "changed", 8},
+		testExpectation{token.DATA_EMAIL, "changed@example.com", 8},
+		testExpectation{token.DATA_DATE, "20190701", 8},
+		testExpectation{token.ATTR_REGISTRY_SOURCE, "source", 9},
+		testExpectation{token.DATA_REGISTRY_NAME, "TEST", 9},
+		testExpectation{token.ATTR_REMARKS, "remarks", 10},
+		testExpectation{token.DATA_STRING, "remark", 10},
+		testExpectation{token.EOF, "", 0},
+	}
+
+	l := Lex("maintainer-object", input)
+
+	for _, tt := range tests {
+		tok := l.NextToken()
+		failure := false
+
+		if !assert.Equal(t, tt.typ, tok.Type, "Invalid token type '%s', expected '%s'", tok.Type, tt.typ) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.line, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
+			failure = true
+		}
+
+		if failure {
+			t.FailNow()
+		}
+	}
+}

@@ -1,7 +1,6 @@
 package lexer
 
 import (
-	"fmt"
 	"strings"
 	"unicode/utf8"
 
@@ -9,25 +8,27 @@ import (
 )
 
 const (
-	alpha        = "abcdefghijklmnopqrstuvwxyz"
-	digits       = "0123456789"
-	hexDigits    = digits + "ABCDEFabcedf"
-	alphaNumeric = alpha + digits
-	period       = "."
-	hyphen       = "-"
-	underscore   = "_"
-	colon        = ":"
-	semicolon    = ";"
-	equal        = "="
-	plus         = "+"
-	at           = "@"
-	pound        = "#"
-	forwardSlash = "/"
-	backSlash    = "\\"
-	dollarSign   = "$"
-	whitespace   = " \t\x85\xA0"
-	newline      = "\n\v\f\r"
-	comma        = ","
+	alpha          = "abcdefghijklmnopqrstuvwxyz"
+	digits         = "0123456789"
+	hexAlphabetics = "abcdef"
+	hexDigits      = digits + hexAlphabetics
+	nonHex         = "ghijklmnopqrstuvwxyz"
+	alphaNumeric   = alpha + digits
+	period         = "."
+	hyphen         = "-"
+	underscore     = "_"
+	colon          = ":"
+	semicolon      = ";"
+	equal          = "="
+	plus           = "+"
+	at             = "@"
+	pound          = "#"
+	forwardSlash   = "/"
+	backSlash      = "\\"
+	dollarSign     = "$"
+	whitespace     = " \t\x85\xA0"
+	newline        = "\n\v\f\r"
+	comma          = ","
 )
 
 // Lexer is the structure responsible for managing the lexical scanning
@@ -35,6 +36,7 @@ const (
 type Lexer struct {
 	name             string           // name is the input text name, used for error reporting purposes
 	input            string           // the input data / reader being scanned by the Lexer
+	lowerInput       string           // the lowercase only version, which allows for case-insensitive checks
 	start            int              // the start position of the item currently being read
 	pos              int              // the current read position in the input, we tokenize input[start:pos]
 	lastRune         rune             // the last read rune
@@ -58,10 +60,11 @@ const eof = -1
 // Lex creates a new Lexer and starts running it
 func Lex(inputName, inputText string) *Lexer {
 	l := &Lexer{
-		name:    inputName,
-		input:   inputText,
-		tokens:  make(chan token.Token, 2),
-		lineNum: 1,
+		name:       inputName,
+		input:      inputText,
+		lowerInput: strings.ToLower(inputText),
+		tokens:     make(chan token.Token, 2),
+		lineNum:    1,
 	}
 
 	go l.run()
@@ -95,7 +98,6 @@ func (l *Lexer) readRune() rune {
 	// we've hit the end of the file.
 	if l.pos >= len(l.input) {
 		l.lastRuneWidth = 0
-		fmt.Println("EOF")
 		return eof
 	}
 
@@ -196,56 +198,42 @@ func (l *Lexer) acceptExceptRun(invalid string) bool {
 func lexObjectClass(l *Lexer) stateFn {
 	for {
 		switch {
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_MAINTAINER.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_MAINTAINER.Name()):
 			return lexAttrName(l, token.CLASS_MAINTAINER, lexNICHandleAttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_PERSON.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_PERSON.Name()):
 			return lexAttrName(l, token.CLASS_PERSON, lexFreeformAttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROLE.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_ROLE.Name()):
 			return lexAttrName(l, token.CLASS_ROLE, lexFreeformAttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AUT_NUM.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_AUT_NUM.Name()):
 			return lexAttrName(l, token.CLASS_AUT_NUM, lexAutNumAttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AS_SET.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_AS_SET.Name()):
 			return lexAttrName(l, token.CLASS_AS_SET, lexNICHandleAttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE6.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_ROUTE_SET.Name()):
+			return lexAttrName(l, token.CLASS_ROUTE_SET, lexNICHandleAttrValue, lexClassAttributes)
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_ROUTE6.Name()):
 			return lexAttrName(l, token.CLASS_ROUTE6, lexCIDRv6AttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_ROUTE.Name()):
 			return lexAttrName(l, token.CLASS_ROUTE, lexCIDRv4AttrValue, lexClassAttributes)
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE_SET.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_FILTER_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_FILTER_SET.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_ROUTER.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTER.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_ROUTER_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTER_SET.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_PEERING_SET.Name()):
 			// TODO
 			fallthrough
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_PEERING_SET.Name()):
-			// TODO
-			fallthrough
-		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_DICTIONARY.Name()):
+		case strings.HasPrefix(l.lowerInput[l.pos:], token.CLASS_DICTIONARY.Name()):
 			// TODO
 			fallthrough
 		default:
 			l.emit(token.EOF)
 			return nil
 		}
-
-		// if l.readRune() == eof {
-		// 	break
-		// }
 	}
-
-	// if l.pos > l.start {
-	// 	l.emit(token.STRING)
-	// }
-	// fmt.Println("emitting EOF")
-	// l.emit(token.EOF)
-
-	// // return nil to stop the state machine
-	// return nil
 }
 
 func lexClassAttributes(l *Lexer) stateFn {
@@ -278,54 +266,58 @@ func lexClassAttributes(l *Lexer) stateFn {
 		l.acceptRun(whitespace)
 		l.ignore()
 		return l.continuationPath(l, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_AS_NAME.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_AS_NAME.Name()):
 		return lexAttrName(l, token.ATTR_AS_NAME, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_DESCRIPTION.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_DESCRIPTION.Name()):
 		return lexAttrName(l, token.ATTR_DESCRIPTION, lexFreeformAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_AUTHENTICATION.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_AUTHENTICATION.Name()):
 		return lexAttrName(l, token.ATTR_AUTHENTICATION, lexAuthenticationAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_UPDATED_TO_EMAIL.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_UPDATED_TO_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_UPDATED_TO_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MAINTAINER_NOTIFY_EMAIL.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_MAINTAINER_NOTIFY_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_MAINTAINER_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_TECHNICAL_CONTACT.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_TECHNICAL_CONTACT.Name()):
 		return lexAttrName(l, token.ATTR_TECHNICAL_CONTACT, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_ADMIN_CONTACT.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_ADMIN_CONTACT.Name()):
 		return lexAttrName(l, token.ATTR_ADMIN_CONTACT, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_REMARKS.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_REMARKS.Name()):
 		return lexAttrName(l, token.ATTR_REMARKS, lexFreeformAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_NOTIFY_EMAIL.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_NOTIFY_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_NOTIFY_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MAINTAINED_BY.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_MAINTAINED_BY.Name()):
 		return lexAttrName(l, token.ATTR_MAINTAINED_BY, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_CHANGED_AT_AND_BY.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_CHANGED_AT_AND_BY.Name()):
 		return lexAttrName(l, token.ATTR_CHANGED_AT_AND_BY, lexEmailAndDateAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_REGISTRY_SOURCE.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_REGISTRY_SOURCE.Name()):
 		return lexAttrName(l, token.ATTR_REGISTRY_SOURCE, lexRegistrySourceAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_NIC_HANDLE.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_NIC_HANDLE.Name()):
 		return lexAttrName(l, token.ATTR_NIC_HANDLE, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_ADDRESS.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_ADDRESS.Name()):
 		return lexAttrName(l, token.ATTR_ADDRESS, lexFreeformAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_PHONE_NUMBER.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_PHONE_NUMBER.Name()):
 		return lexAttrName(l, token.ATTR_PHONE_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_FAX_NUMBER.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_FAX_NUMBER.Name()):
 		return lexAttrName(l, token.ATTR_FAX_NUMBER, lexPhoneOrFaxAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_EMAIL.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_EMAIL.Name()):
 		return lexAttrName(l, token.ATTR_EMAIL, lexEmailAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_EXPORT.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_EXPORT.Name()):
 		return lexAttrName(l, token.ATTR_EXPORT, lexExportAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_IMPORT.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_IMPORT.Name()):
 		return lexAttrName(l, token.ATTR_IMPORT, lexImportAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MULTI_PROTO_EXPORT_POLICY.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_MULTI_PROTO_EXPORT_POLICY.Name()):
 		return lexAttrName(l, token.ATTR_MULTI_PROTO_EXPORT_POLICY, lexMultiProtoExportAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MULTI_PROTO_IMPORT_POLICY.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_MULTI_PROTO_IMPORT_POLICY.Name()):
 		return lexAttrName(l, token.ATTR_MULTI_PROTO_IMPORT_POLICY, lexMultiProtoImportAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_MEMBER_OF_ROUTE_SET.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_MULTI_PROTO_MEMBERS.Name()):
+		return lexAttrName(l, token.ATTR_MULTI_PROTO_MEMBERS, lexMultiProtoMembers, lexClassAttributes)
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_MEMBER_OF_ROUTE_SET.Name()):
 		return lexAttrName(l, token.ATTR_MEMBER_OF_ROUTE_SET, lexNICHandleAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_AS_SET_MEMBERS.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_AS_SET_MEMBERS.Name()):
 		return lexAttrName(l, token.ATTR_AS_SET_MEMBERS, lexMultipleAutNumAttrValue, lexClassAttributes)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.ATTR_ORIGIN.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_ORIGIN.Name()):
 		return lexAttrName(l, token.ATTR_ORIGIN, lexAutNumAttrValue, lexClassAttributes)
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.ATTR_MEMBERS_BY_REFERENCE.Name()):
+		return lexAttrName(l, token.ATTR_MEMBERS_BY_REFERENCE, lexNICHandleAttrValue, lexClassAttributes)
 	default:
 		return lexObjectClass(l)
 	}
@@ -458,26 +450,26 @@ func lexRegistrySourceAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 func lexAuthenticationAttrValue(l *Lexer, returnToStateFn stateFn) stateFn {
 	switch {
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_PGP_KEY.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.DATA_PGP_KEY.Name()):
 		l.pos += len(token.DATA_PGP_KEY.Name())
 		l.ignore()
 		return lexPGPKeyAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_CRYPT_PASS.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.DATA_CRYPT_PASS.Name()):
 		l.pos += len(token.DATA_CRYPT_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexCryptPassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_MD5_PASS.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.DATA_MD5_PASS.Name()):
 		l.pos += len(token.DATA_MD5_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexMD5PassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_MAIL_FROM_PASS.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.DATA_MAIL_FROM_PASS.Name()):
 		l.pos += len(token.DATA_MAIL_FROM_PASS.Name())
 		l.acceptRun(whitespace)
 		l.ignore()
 		return lexMailFromPassAuthAttrValue(l, returnToStateFn)
-	case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.DATA_NO_AUTH.Name()):
+	case strings.HasPrefix(l.lowerInput[l.pos:], token.DATA_NO_AUTH.Name()):
 		return lexNoAuthAttrValue(l, returnToStateFn)
 	default:
 		l.emit(token.ILLEGAL)
@@ -821,7 +813,7 @@ func lexMultiProtoImportAttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 func partialLexProtocol(l *Lexer) bool {
 	// if the export policy begins with protocol
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "protocol") {
+	if strings.HasPrefix(l.lowerInput[l.pos:], "protocol") {
 		for _, t := range "protocol" {
 			if !l.accept(string(t)) {
 				return false
@@ -835,7 +827,7 @@ func partialLexProtocol(l *Lexer) bool {
 		l.acceptRun(whitespace)
 	}
 
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "into") {
+	if strings.HasPrefix(l.lowerInput[l.pos:], "into") {
 		for _, t := range "into" {
 			if !l.accept(string(t)) {
 				return false
@@ -855,7 +847,7 @@ func partialLexProtocol(l *Lexer) bool {
 
 func partialLexAddressFamilyIdentifier(l *Lexer) bool {
 	// if the export policy begins with protocol
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "afi") {
+	if strings.HasPrefix(l.lowerInput[l.pos:], "afi") {
 		for _, t := range "afi" {
 			if !l.accept(string(t)) {
 				return false
@@ -869,17 +861,17 @@ func partialLexAddressFamilyIdentifier(l *Lexer) bool {
 			// AFI type list
 			// https://tools.ietf.org/html/rfc4012#section-2.2
 			switch {
-			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv4.unicast"):
+			case strings.HasPrefix(l.lowerInput[l.pos:], "ipv4.unicast"):
 				afiType = "ipv4.unicast"
-			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv4.multicast"):
+			case strings.HasPrefix(l.lowerInput[l.pos:], "ipv4.multicast"):
 				afiType = "ipv4.multicast"
-			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv4"):
+			case strings.HasPrefix(l.lowerInput[l.pos:], "ipv4"):
 				afiType = "ipv4"
-			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv6.unicast"):
+			case strings.HasPrefix(l.lowerInput[l.pos:], "ipv6.unicast"):
 				afiType = "ipv6.unicast"
-			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv6.multicast"):
+			case strings.HasPrefix(l.lowerInput[l.pos:], "ipv6.multicast"):
 				afiType = "ipv6.multicast"
-			case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "ipv6"):
+			case strings.HasPrefix(l.lowerInput[l.pos:], "ipv6"):
 				afiType = "ipv6"
 			default:
 				// illegal AFI
@@ -950,7 +942,7 @@ func partialLexFromPeer(l *Lexer) bool {
 }
 
 func partialLexAction(l *Lexer, nextClause string) bool {
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "action") {
+	if strings.HasPrefix(l.lowerInput[l.pos:], "action") {
 		for _, t := range "action" {
 			if !l.accept(string(t)) {
 				return false
@@ -978,7 +970,7 @@ func partialLexAction(l *Lexer, nextClause string) bool {
 			}
 			l.acceptRun(whitespace)
 			// check for announce clause instead of another action
-			if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), nextClause) {
+			if strings.HasPrefix(l.lowerInput[l.pos:], nextClause) {
 				parsingAction = false
 			}
 		}
@@ -1011,7 +1003,7 @@ func partialLexAnnouncement(l *Lexer) bool {
 
 		l.acceptRun(whitespace)
 		// check for another AS instead of the end of the line
-		if !strings.HasPrefix(strings.ToUpper(l.input[l.pos:]), "AS") {
+		if !strings.HasPrefix(l.lowerInput[l.pos:], "as") {
 			parsingAS = false
 		}
 	}
@@ -1028,7 +1020,7 @@ func partialLexAcceptAS(l *Lexer) bool {
 	}
 	l.acceptRun(whitespace)
 
-	if strings.HasPrefix(strings.ToLower(l.input[l.pos:]), "any") {
+	if strings.HasPrefix(l.lowerInput[l.pos:], "any") {
 		for _, t := range "ANY" {
 			if !l.accept(string(t)) {
 				return false
@@ -1050,7 +1042,7 @@ func partialLexAcceptAS(l *Lexer) bool {
 
 			l.acceptRun(whitespace)
 			// check for another AS instead of the end of the line
-			if !strings.HasPrefix(strings.ToUpper(l.input[l.pos:]), "AS") {
+			if !strings.HasPrefix(l.lowerInput[l.pos:], "as") {
 				parsingAS = false
 			}
 		}
@@ -1143,6 +1135,130 @@ func lexCIDRv6AttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 	if l.pos > l.start {
 		l.emit(token.DATA_IPv6_CIDR)
+	}
+
+	return nextStateFn
+}
+
+func lexMultiProtoMembers(l *Lexer, nextStateFn stateFn) stateFn {
+	if l.accept(nonHex) {
+		// this has to be a NIC handle / object as it's an alphabetic character
+		// that is not a valid hexadecimal digit
+		l.acceptRun(alphaNumeric + hyphen + underscore)
+		if l.pos > l.start {
+			l.emit(token.DATA_NIC_HANDLE)
+		}
+	} else if l.accept(hexAlphabetics) {
+		// we must have an IPv6 address
+		for i := 0; i < 8; i++ {
+			// this means we hit a ::
+			if l.accept(colon) {
+				continue
+			}
+
+			// accept up to four hex digits
+			for d := 0; d < 4; d++ {
+				l.accept(hexDigits)
+			}
+			// accept the separating colon
+			l.accept(colon)
+		}
+
+		if !l.accept(forwardSlash) {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+
+		// subnet size
+		for i := 0; i < 3; i++ {
+			l.accept(digits)
+		}
+
+		if l.pos > l.start {
+			l.emit(token.DATA_IPv6_CIDR)
+		}
+	} else if l.accept(digits) {
+		// we have an IP address but not sure if it's IPv4 or IPv6 yet
+		l.acceptRun(hexDigits)
+		if l.accept(period) {
+			// second octet
+			for i := 0; i < 3; i++ {
+				l.accept(digits)
+			}
+
+			if !l.accept(period) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+
+			// third octet
+			for i := 0; i < 3; i++ {
+				l.accept(digits)
+			}
+
+			if !l.accept(period) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+
+			// fourth octet
+			for i := 0; i < 3; i++ {
+				l.accept(digits)
+			}
+
+			if !l.accept(forwardSlash) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+
+			// subnet size
+			for i := 0; i < 2; i++ {
+				l.accept(digits)
+			}
+
+			if l.pos > l.start {
+				l.emit(token.DATA_IPv4_CIDR)
+			}
+
+		} else if l.accept(colon) {
+			// we must have an IPv6 address to keep going
+			// so attempt to read in any remaining 7 octets
+			for i := 0; i < 7; i++ {
+				// this means we hit a ::
+				if l.accept(colon) {
+					continue
+				}
+
+				// accept up to four hex digits
+				for d := 0; d < 4; d++ {
+					l.accept(hexDigits)
+				}
+				// accept the separating colon
+				l.accept(colon)
+			}
+
+			if !l.accept(forwardSlash) {
+				l.emit(token.ILLEGAL)
+				return nil
+			}
+
+			// subnet size
+			for i := 0; i < 3; i++ {
+				l.accept(digits)
+			}
+
+			if l.pos > l.start {
+				l.emit(token.DATA_IPv6_CIDR)
+			}
+
+		} else {
+			l.emit(token.ILLEGAL)
+			return nil
+		}
+
+	} else {
+		l.emit(token.ILLEGAL)
+		return nil
 	}
 
 	return nextStateFn
