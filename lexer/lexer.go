@@ -207,8 +207,7 @@ func lexObjectClass(l *Lexer) stateFn {
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_AS_SET.Name()):
 			return lexAttrName(l, token.CLASS_AS_SET, lexNICHandleAttrValue, lexClassAttributes)
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE6.Name()):
-			// TODO
-			fallthrough
+			return lexAttrName(l, token.CLASS_ROUTE6, lexCIDRv6AttrValue, lexClassAttributes)
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE.Name()):
 			return lexAttrName(l, token.CLASS_ROUTE, lexCIDRv4AttrValue, lexClassAttributes)
 		case strings.HasPrefix(strings.ToLower(l.input[l.pos:]), token.CLASS_ROUTE_SET.Name()):
@@ -1112,6 +1111,38 @@ func lexCIDRv4AttrValue(l *Lexer, nextStateFn stateFn) stateFn {
 
 	if l.pos > l.start {
 		l.emit(token.DATA_IPv4_CIDR)
+	}
+
+	return nextStateFn
+}
+
+func lexCIDRv6AttrValue(l *Lexer, nextStateFn stateFn) stateFn {
+	for i := 0; i < 8; i++ {
+		// this means we hit a ::
+		if l.accept(colon) {
+			continue
+		}
+
+		// accept up to four hex digits
+		for d := 0; d < 4; d++ {
+			l.accept(hexDigits)
+		}
+		// accept the separating colon
+		l.accept(colon)
+	}
+
+	if !l.accept(forwardSlash) {
+		l.emit(token.ILLEGAL)
+		return nil
+	}
+
+	// subnet size
+	for i := 0; i < 3; i++ {
+		l.accept(digits)
+	}
+
+	if l.pos > l.start {
+		l.emit(token.DATA_IPv6_CIDR)
 	}
 
 	return nextStateFn

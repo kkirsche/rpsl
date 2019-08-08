@@ -526,3 +526,56 @@ remarks:        remark
 		}
 	}
 }
+
+func TestLexRoute6(t *testing.T) {
+	input := `route6:         2001:db8::/48
+descr:          test route6
+origin:         AS65537
+mnt-by:         test-MNT
+changed:        changed@example.com 20190701 # comment
+source:         TEST
+remarks:        remark
+`
+
+	tests := testExpectations{
+		testExpectation{token.CLASS_ROUTE6, "route6", 1},
+		testExpectation{token.DATA_IPv6_CIDR, "2001:db8::/48", 1},
+		testExpectation{token.ATTR_DESCRIPTION, "descr", 2},
+		testExpectation{token.DATA_STRING, "test route6", 2},
+		testExpectation{token.ATTR_ORIGIN, "origin", 3},
+		testExpectation{token.DATA_ASN, "AS65537", 3},
+		testExpectation{token.ATTR_MAINTAINED_BY, "mnt-by", 4},
+		testExpectation{token.DATA_NIC_HANDLE, "test-MNT", 4},
+		testExpectation{token.ATTR_CHANGED_AT_AND_BY, "changed", 5},
+		testExpectation{token.DATA_EMAIL, "changed@example.com", 5},
+		testExpectation{token.DATA_DATE, "20190701", 5},
+		testExpectation{token.ATTR_REGISTRY_SOURCE, "source", 6},
+		testExpectation{token.DATA_REGISTRY_NAME, "TEST", 6},
+		testExpectation{token.ATTR_REMARKS, "remarks", 7},
+		testExpectation{token.DATA_STRING, "remark", 7},
+		testExpectation{token.EOF, "", 0},
+	}
+
+	l := Lex("maintainer-object", input)
+
+	for _, tt := range tests {
+		tok := l.NextToken()
+		failure := false
+
+		if !assert.Equal(t, tt.typ, tok.Type, "Invalid token type '%s', expected '%s'", tok.Type, tt.typ) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.literal, tok.Literal, "Invalid token literal '%s', expected '%s'", tok.Literal, tt.literal) {
+			failure = true
+		}
+
+		if !assert.Equal(t, tt.line, tok.Line, "Invalid line number %d for token literal '%s'", tok.Line, tok.Literal) {
+			failure = true
+		}
+
+		if failure {
+			t.FailNow()
+		}
+	}
+}
